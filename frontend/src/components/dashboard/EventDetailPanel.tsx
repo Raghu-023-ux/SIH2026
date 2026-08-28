@@ -1,36 +1,45 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import {
   DisasterEventItem,
-  LocationMapItem,
   RiskAssessmentItem,
   WeatherObservationItem,
   EventTimelineMilestoneItem,
-} from "@/components/dashboard/types";
+} from "./types";
 import {
   AlertTriangle,
-  CheckCircle,
-  ExternalLink,
-  HelpCircle,
-  Info,
-  ShieldCheck,
-  Zap,
-  Clock,
-  Layers,
-  ChevronRight,
+  CheckCircle2,
   TrendingUp,
   TrendingDown,
-  Minus,
   Activity,
+  Layers,
+  Clock,
   Check,
+  ExternalLink,
+  Shield,
+  Gauge,
+  Info,
+  Calendar,
+  Minus,
+  Sparkles,
+  FileText,
+  Compass,
 } from "lucide-react";
-import TrendCharts from "@/components/dashboard/TrendCharts";
-import EventTimeline from "@/components/dashboard/EventTimeline";
 
 interface EventDetailPanelProps {
   event: DisasterEventItem | null;
-  location: LocationMapItem | null;
+  location: {
+    id: string;
+    name: string;
+    latitude: number;
+    longitude: number;
+    district: string;
+    state: string;
+    elevation: number;
+    slope_angle: number;
+    susceptibility_score: number;
+  } | null;
   latestAssessment: RiskAssessmentItem | null;
   weatherHistory: WeatherObservationItem[];
   riskHistory: RiskAssessmentItem[];
@@ -38,6 +47,7 @@ interface EventDetailPanelProps {
   onAcknowledgeEvent: (eventId: string) => Promise<void>;
   isAcknowledging: boolean;
   onOpenInvestigate: (locationId: string) => void;
+  onAskAI?: (question: string, agentType?: string) => void;
 }
 
 export default function EventDetailPanel({
@@ -50,32 +60,32 @@ export default function EventDetailPanel({
   onAcknowledgeEvent,
   isAcknowledging,
   onOpenInvestigate,
+  onAskAI,
 }: EventDetailPanelProps) {
-  const [activeTab, setActiveTab] = useState<"factors" | "charts" | "timeline">("factors");
-  const [showConfidenceTooltip, setShowConfidenceTooltip] = useState(false);
-
   if (!location) {
     return (
-      <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-8 text-center text-slate-400">
-        <Layers className="w-8 h-8 mx-auto mb-2 opacity-50 text-indigo-400" />
-        <p className="text-sm font-medium">Select a monitoring station or active event to inspect multi-signal hazard telemetry.</p>
+      <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-8 text-center text-slate-500 font-mono text-xs flex flex-col items-center justify-center gap-2">
+        <Activity className="w-6 h-6 text-slate-600 animate-pulse" />
+        Select a monitoring location on the tactical map or active event queue to inspect factor diagnostics.
       </div>
     );
   }
 
-  const riskScore = latestAssessment?.risk_score ?? location.risk_score ?? 0;
-  const riskLevel = latestAssessment?.risk_level ?? location.risk_level ?? "LOW";
-  const confidence = latestAssessment?.confidence_score ?? location.confidence_score ?? 0.85;
-  const trajectory = latestAssessment?.trajectory || event?.trajectory || "STABLE";
+  const riskScore = latestAssessment?.risk_score ?? 0;
+  const riskLevel = latestAssessment?.risk_level ?? "LOW";
+  const confidenceScore = latestAssessment?.confidence_score ?? 0.8;
+  const trajectory = latestAssessment?.trajectory ?? "STABLE";
+  const reasonCodes = latestAssessment?.reason_codes ?? [];
+  const factors = latestAssessment?.factors ?? [];
   const dataQuality = latestAssessment?.data_quality;
   const signalAgreement = latestAssessment?.signal_agreement;
 
-  const isCritical = riskLevel === "CRITICAL";
-  const isHigh = riskLevel === "HIGH";
-  const isModerate = riskLevel === "MODERATE";
+  const isCritical = riskLevel === "CRITICAL" || riskScore >= 75;
+  const isHigh = riskLevel === "HIGH" || (riskScore >= 50 && riskScore < 75);
+  const isModerate = riskLevel === "ELEVATED" || (riskScore >= 25 && riskScore < 50);
 
   const getTrajectoryBadge = (traj: string) => {
-    switch (traj.toUpperCase()) {
+    switch (traj) {
       case "INCREASING":
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-red-950/80 text-red-400 border border-red-800/80">
@@ -147,6 +157,26 @@ export default function EventDetailPanel({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
+          {onAskAI && (
+            <button
+              onClick={() => onAskAI("Explain the primary physical and terrain factors determining this risk score.", "explanation")}
+              className="bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 text-xs px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 font-medium font-mono"
+            >
+              <FileText className="w-3.5 h-3.5 text-indigo-400" />
+              Explain
+            </button>
+          )}
+
+          {onAskAI && (
+            <button
+              onClick={() => onAskAI("Investigate what factors changed to cause this hazard trajectory.", "investigation")}
+              className="bg-purple-950/80 hover:bg-purple-900 text-purple-300 border border-purple-700/60 text-xs px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 font-medium font-mono"
+            >
+              <Compass className="w-3.5 h-3.5 text-purple-400" />
+              Investigate
+            </button>
+          )}
+
           {event && event.status !== "RESOLVED" && (
             <button
               onClick={() => onAcknowledgeEvent(event.id)}
@@ -164,7 +194,7 @@ export default function EventDetailPanel({
 
           <button
             onClick={() => onOpenInvestigate(location.id)}
-            className="bg-indigo-600/90 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 font-medium shadow-sm"
+            className="bg-indigo-600/90 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 font-medium shadow-sm font-mono"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             360° Station Dossier
@@ -178,201 +208,167 @@ export default function EventDetailPanel({
         <div className="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80 relative">
           <div className="flex items-center justify-between text-slate-400 text-[10px] font-mono uppercase">
             <span>Assessment Confidence</span>
-            <div
-              className="cursor-pointer relative"
-              onMouseEnter={() => setShowConfidenceTooltip(true)}
-              onMouseLeave={() => setShowConfidenceTooltip(false)}
-              onClick={() => setShowConfidenceTooltip(!showConfidenceTooltip)}
-            >
-              <HelpCircle className="w-3.5 h-3.5 text-slate-500 hover:text-slate-300 transition" />
-              {showConfidenceTooltip && (
-                <div className="absolute right-0 top-5 w-64 p-2.5 bg-slate-800 text-[11px] text-slate-200 rounded-lg shadow-2xl border border-slate-700 z-50 leading-relaxed font-sans">
-                  <strong>Assessment Confidence:</strong> Represents data completeness, sensor freshness, and multi-signal coherence across rainfall, pore water, and slope sensors. It is not the probability of a landslide occurring.
-                </div>
-              )}
-            </div>
+            <Gauge className="w-3 h-3 text-indigo-400" />
           </div>
-          <div className="text-base font-extrabold text-slate-100 font-mono mt-0.5">
-            {(confidence * 100).toFixed(0)}%
+          <div className="text-base font-bold text-slate-100 mt-1">
+            {(confidenceScore * 100).toFixed(0)}%
           </div>
-          <div className="text-[10px] text-slate-500 mt-0.5 font-mono">
-            {signalAgreement ? `Coherence: ${signalAgreement.agreement_level}` : "Signal Agreement: High"}
-          </div>
+          <p className="text-[10px] text-slate-400 font-mono">
+            {confidenceScore >= 0.8 ? "High Signal Agreement" : "Partial Sensor Agreement"}
+          </p>
         </div>
 
-        {/* Data Quality & Assurance */}
+        {/* Data Quality Status */}
         <div className="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80">
-          <div className="text-slate-400 text-[10px] font-mono uppercase">Data Quality</div>
-          <div className="text-base font-extrabold text-indigo-300 font-mono mt-0.5">
-            {dataQuality ? dataQuality.status : "VALID"}
+          <div className="flex items-center justify-between text-slate-400 text-[10px] font-mono uppercase">
+            <span>Data Assurance</span>
+            <Shield className="w-3 h-3 text-emerald-400" />
           </div>
-          <div className="text-[10px] text-slate-500 mt-0.5 font-mono">
-            Freshness: {dataQuality ? `${(dataQuality.freshness_score * 100).toFixed(0)}%` : "100%"} | Comp: {dataQuality ? `${(dataQuality.completeness_score * 100).toFixed(0)}%` : "100%"}
+          <div className="text-base font-bold text-slate-100 mt-1">
+            {dataQuality?.status || "VALID"}
           </div>
+          <p className="text-[10px] text-slate-400 font-mono">
+            Completeness: {((dataQuality?.completeness_score ?? 1) * 100).toFixed(0)}%
+          </p>
         </div>
 
-        {/* Peak Hazard Recorded */}
+        {/* Signal Coherence Level */}
         <div className="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80">
-          <div className="text-slate-400 text-[10px] font-mono uppercase">Peak Risk Severity</div>
-          <div className="text-base font-extrabold text-slate-100 font-mono mt-0.5">
-            {event?.peak_risk ? `${event.peak_risk.toFixed(1)} / 100` : `${riskScore.toFixed(1)} / 100`}
+          <div className="flex items-center justify-between text-slate-400 text-[10px] font-mono uppercase">
+            <span>Signal Coherence</span>
+            <Layers className="w-3 h-3 text-purple-400" />
           </div>
-          <div className="text-[10px] text-slate-500 mt-0.5 font-mono">
-            Peak Tier: {event?.peak_severity || riskLevel}
+          <div className="text-base font-bold text-slate-100 mt-1">
+            {signalAgreement?.agreement_level || "COHERENT"}
           </div>
+          <p className="text-[10px] text-slate-400 font-mono">
+            Score: {((signalAgreement?.agreement_score ?? 0.85) * 100).toFixed(0)}%
+          </p>
         </div>
 
-        {/* Engine Version */}
+        {/* Event Evolution (Peak vs Current) */}
         <div className="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80">
-          <div className="text-slate-400 text-[10px] font-mono uppercase">Engine Version</div>
-          <div className="text-base font-bold text-slate-200 font-mono mt-0.5">
-            {latestAssessment?.assessment_version || "prototype-v0.2"}
+          <div className="flex items-center justify-between text-slate-400 text-[10px] font-mono uppercase">
+            <span>Event Evolution</span>
+            <Clock className="w-3 h-3 text-orange-400" />
           </div>
-          <div className="text-[10px] text-emerald-400 mt-0.5 font-mono">
-            Deterministic Multimodal
+          <div className="text-base font-bold text-slate-100 mt-1">
+            {event?.peak_risk ? `${event.peak_risk.toFixed(0)} Peak` : `${riskScore.toFixed(0)} Current`}
           </div>
+          <p className="text-[10px] text-slate-400 font-mono">
+            Initial: {event?.initial_risk ? event.initial_risk.toFixed(0) : riskScore.toFixed(0)}
+          </p>
         </div>
       </div>
 
-      {/* Diagnostic Explanation Summary */}
-      <div className="bg-slate-950/80 p-3 rounded-lg border border-slate-800 text-xs text-slate-300 space-y-1.5">
-        <div className="flex items-center gap-1.5 text-indigo-400 font-semibold font-mono text-[11px] uppercase tracking-wider">
-          <Zap className="w-3.5 h-3.5" />
-          <span>Diagnostic Rationale &amp; Analytical Attribution:</span>
-        </div>
-        <p className="leading-relaxed text-slate-300">
-          {latestAssessment?.reason || event?.summary || "Sensors reporting within normal baseline operating bounds."}
-        </p>
-
-        {/* Reason Code Badges */}
-        {latestAssessment?.reason_codes && latestAssessment.reason_codes.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-wrap pt-1">
-            <span className="text-[10px] font-mono uppercase text-slate-500">Reason Codes:</span>
-            {latestAssessment.reason_codes.map((code) => (
+      {/* Reason Codes Badge Bar */}
+      {reasonCodes.length > 0 && (
+        <div className="space-y-1.5 bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/80">
+          <div className="text-[10px] font-mono uppercase text-slate-400 font-bold flex items-center gap-1.5">
+            <Info className="w-3 h-3 text-indigo-400" />
+            Machine Reason Codes:
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {reasonCodes.map((code) => (
               <span
                 key={code}
-                className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-slate-800 text-indigo-300 border border-slate-700"
+                className="bg-indigo-950/70 border border-indigo-800 text-indigo-300 text-[10px] font-mono px-2 py-0.5 rounded-md font-semibold"
               >
                 {code}
               </span>
             ))}
           </div>
-        )}
-      </div>
-
-      {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-800 pt-1">
-        <button
-          onClick={() => setActiveTab("factors")}
-          className={`px-3 py-1.5 text-xs font-semibold rounded-t-lg transition border-b-2 font-mono ${
-            activeTab === "factors"
-              ? "border-indigo-500 text-indigo-400 bg-slate-800/40"
-              : "border-transparent text-slate-400 hover:text-slate-200"
-          }`}
-        >
-          Factor Scoring ({latestAssessment?.factors?.length ?? 0})
-        </button>
-
-        <button
-          onClick={() => setActiveTab("charts")}
-          className={`px-3 py-1.5 text-xs font-semibold rounded-t-lg transition border-b-2 font-mono ${
-            activeTab === "charts"
-              ? "border-indigo-500 text-indigo-400 bg-slate-800/40"
-              : "border-transparent text-slate-400 hover:text-slate-200"
-          }`}
-        >
-          Time-Series Telemetry
-        </button>
-
-        <button
-          onClick={() => setActiveTab("timeline")}
-          className={`px-3 py-1.5 text-xs font-semibold rounded-t-lg transition border-b-2 font-mono ${
-            activeTab === "timeline"
-              ? "border-indigo-500 text-indigo-400 bg-slate-800/40"
-              : "border-transparent text-slate-400 hover:text-slate-200"
-          }`}
-        >
-          Hazard Timeline ({timeline.length})
-        </button>
-      </div>
-
-      {/* Tab 1: Factors Breakdown Table */}
-      {activeTab === "factors" && (
-        <div className="space-y-3">
-          <div className="text-[11px] text-slate-400">
-            Multi-signal factor contribution to composite risk score (0-100). Contributing factors are normalized ($0.0 - 1.0$) and weighted centrally:
-          </div>
-
-          <div className="space-y-2">
-            {(latestAssessment?.factors || []).map((f) => {
-              const statusColor =
-                f.status === "CRITICAL"
-                  ? "text-red-400 bg-red-950/60 border-red-800"
-                  : f.status === "HIGH"
-                  ? "text-orange-400 bg-orange-950/60 border-orange-800"
-                  : f.status === "MODERATE"
-                  ? "text-yellow-400 bg-yellow-950/60 border-yellow-800"
-                  : "text-emerald-400 bg-emerald-950/60 border-emerald-800";
-
-              const barColor =
-                f.status === "CRITICAL"
-                  ? "bg-red-500"
-                  : f.status === "HIGH"
-                  ? "bg-orange-500"
-                  : f.status === "MODERATE"
-                  ? "bg-yellow-500"
-                  : "bg-emerald-500";
-
-              return (
-                <div
-                  key={f.name}
-                  className="bg-slate-950/50 p-3 rounded-lg border border-slate-800/80 space-y-1.5 text-xs"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-slate-200">{f.name}</span>
-                      <span
-                        className={`px-1.5 py-0.2 rounded text-[10px] font-mono uppercase font-bold border ${statusColor}`}
-                      >
-                        {f.status}
-                      </span>
-                    </div>
-
-                    <div className="text-right font-mono">
-                      <span className="font-bold text-slate-100">+{f.contribution.toFixed(1)} pts</span>
-                      <span className="text-slate-500 text-[10px] ml-1.5">
-                        (Norm: {f.normalized_score?.toFixed(2) ?? "--"} | W: {(f.weight * 100).toFixed(0)}%)
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Visual Progress Bar */}
-                  <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full ${barColor} transition-all duration-500`}
-                      style={{ width: `${Math.min(100, (f.normalized_score ?? (f.contribution / 20.0)) * 100)}%` }}
-                    />
-                  </div>
-
-                  {f.description && (
-                    <div className="text-[11px] text-slate-400 font-mono pt-0.5">
-                      {f.description}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
         </div>
       )}
 
-      {/* Tab 2: Recharts Trend Curves */}
-      {activeTab === "charts" && (
-        <TrendCharts weatherHistory={weatherHistory} riskHistory={riskHistory} />
-      )}
+      {/* Normalized Factor Breakdown Table */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-mono uppercase tracking-wider text-slate-400 font-bold flex items-center gap-1.5">
+            <Layers className="w-3.5 h-3.5 text-indigo-400" />
+            Normalized Factor Attribution (0.0 to 1.0)
+          </h3>
+          <span className="text-[10px] font-mono text-slate-500">
+            Total Score: <strong className="text-slate-200">{riskScore.toFixed(1)} / 100</strong>
+          </span>
+        </div>
 
-      {/* Tab 3: Chronological Hazard Timeline */}
-      {activeTab === "timeline" && <EventTimeline milestones={timeline} />}
+        {factors.length > 0 ? (
+          <div className="overflow-x-auto rounded-lg border border-slate-800">
+            <table className="w-full text-left text-xs font-mono">
+              <thead className="bg-slate-950 text-slate-400 border-b border-slate-800 text-[10px] uppercase">
+                <tr>
+                  <th className="px-3 py-2">Indicator</th>
+                  <th className="px-3 py-2">Measured Telemetry</th>
+                  <th className="px-3 py-2">0–1 Score</th>
+                  <th className="px-3 py-2">Weight</th>
+                  <th className="px-3 py-2">Contribution</th>
+                  <th className="px-3 py-2">Hazard State</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 bg-slate-950/40">
+                {factors.map((f) => (
+                  <tr key={f.name} className="hover:bg-slate-900/60 transition">
+                    <td className="px-3 py-2 text-slate-200 font-medium capitalize">
+                      {f.name.replace(/_/g, " ")}
+                    </td>
+                    <td className="px-3 py-2 text-slate-400">
+                      {typeof f.raw_value === "number" ? f.raw_value.toFixed(1) : String(f.raw_value)}
+                    </td>
+                    <td className="px-3 py-2 text-slate-300">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-12 bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className="bg-indigo-500 h-full rounded-full"
+                            style={{ width: `${Math.min(100, f.normalized_score * 100)}%` }}
+                          />
+                        </div>
+                        <span>{(f.normalized_score ?? 0).toFixed(2)}</span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-slate-400">{(f.weight * 100).toFixed(0)}%</td>
+                    <td className="px-3 py-2 font-bold text-indigo-300">
+                      +{f.contribution.toFixed(1)} pts
+                    </td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${
+                          f.status === "CRITICAL"
+                            ? "bg-red-950 text-red-400 border border-red-800"
+                            : f.status === "HIGH"
+                            ? "bg-orange-950 text-orange-400 border border-orange-800"
+                            : f.status === "MODERATE"
+                            ? "bg-yellow-950 text-yellow-400 border border-yellow-800"
+                            : "bg-emerald-950 text-emerald-400 border border-emerald-800"
+                        }`}
+                      >
+                        {f.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-xs text-slate-500 font-mono italic">
+            No factor breakdown available for this evaluation.
+          </div>
+        )}
+      </div>
+
+      {/* Analytical Diagnostic Prose */}
+      {latestAssessment?.reason && (
+        <div className="bg-slate-950/70 border border-slate-800/80 rounded-lg p-3 space-y-1">
+          <div className="text-[10px] font-mono uppercase text-slate-400 font-bold flex items-center gap-1">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            Disaster Engine Synthesis:
+          </div>
+          <p className="text-xs text-slate-300 leading-relaxed font-sans">
+            {latestAssessment.reason}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

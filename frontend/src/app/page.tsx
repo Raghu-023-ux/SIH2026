@@ -17,6 +17,7 @@ import ActiveEventsList from "@/components/dashboard/ActiveEventsList";
 import EventDetailPanel from "@/components/dashboard/EventDetailPanel";
 import LocationInvestigateModal from "@/components/dashboard/LocationInvestigateModal";
 import SimulationPanel from "@/components/dashboard/SimulationPanel";
+import AIInvestigationPanel from "@/components/dashboard/AIInvestigationPanel";
 import { ShieldCheck, Info, Server, Activity, Database, CheckCircle2 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -46,6 +47,7 @@ export default function CommandCenter() {
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
   const [isAcknowledging, setIsAcknowledging] = useState<boolean>(false);
   const [autoRefreshInterval, setAutoRefreshInterval] = useState<number>(30); // 30s auto-refresh
+  const [activeAIQuestion, setActiveAIQuestion] = useState<string | null>(null);
 
   // Fetch full location investigation & telemetry details
   const loadLocationTelemetry = useCallback(
@@ -288,6 +290,11 @@ export default function CommandCenter() {
     }
   };
 
+  // Handle inline Ask AI from other components
+  const handleAskAI = (question: string, agentType?: string) => {
+    setActiveAIQuestion(question);
+  };
+
   const activeSelectedLocation = locations.find((l) => l.id === selectedLocationId) || null;
   const activeSelectedEvent =
     events.find((e) => e.id === selectedEventId) ||
@@ -358,7 +365,7 @@ export default function CommandCenter() {
           </div>
         </div>
 
-        {/* Core Tactical Grid: Map & Details on Left, Event Queue & Simulation on Right */}
+        {/* Core Tactical Grid: Map & Details on Left, AI Investigation & Event Queue on Right */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           {/* Left Column: Geographical Risk Map + Factor Details (7 cols) */}
           <div className="lg:col-span-7 space-y-4">
@@ -389,11 +396,22 @@ export default function CommandCenter() {
               onAcknowledgeEvent={handleAcknowledgeEvent}
               isAcknowledging={isAcknowledging}
               onOpenInvestigate={(id) => setInvestigateLocationId(id)}
+              onAskAI={handleAskAI}
             />
           </div>
 
-          {/* Right Column: Active Event Queue + Simulation Console (5 cols) */}
+          {/* Right Column: AI Investigation + Active Event Queue + Simulation Console (5 cols) */}
           <div className="lg:col-span-5 space-y-4">
+            {/* AI Disaster Analyst & Investigation Panel */}
+            <AIInvestigationPanel
+              locationId={selectedLocationId}
+              locationName={activeSelectedLocation?.name || null}
+              eventId={activeSelectedEvent?.id || null}
+              apiUrl={API_URL}
+              activeQuestion={activeAIQuestion}
+              onQuestionResolved={() => setActiveAIQuestion(null)}
+            />
+
             {/* Active Event Queue */}
             <ActiveEventsList
               events={events}
@@ -418,7 +436,7 @@ export default function CommandCenter() {
             <div className="p-3 bg-slate-950/80 border border-slate-800/80 rounded-xl text-[11px] text-slate-400 leading-relaxed flex items-start gap-2.5">
               <Info className="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5" />
               <div>
-                <strong className="text-slate-300">Operational Notice:</strong> The platform is currently operating in <strong className="text-indigo-300">{dataMode}</strong> mode. Real meteorological observations from public APIs are evaluated against an analytical prototype landslide-risk assessment pipeline. Output scores provide situational hazard assessment and do not supersede official state authority disaster bulletins.
+                <strong className="text-slate-300">Operational Notice:</strong> The platform is currently operating in <strong className="text-indigo-300">{dataMode}</strong> mode. AI explanations reflect deterministic interpretations of the scientific engine's mathematical risk assessment and do not supersede official state authority disaster bulletins.
               </div>
             </div>
           </div>
