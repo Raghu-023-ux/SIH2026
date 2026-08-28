@@ -1,6 +1,7 @@
-from typing import List, Tuple, Dict, Any, Optional
+from typing import List, Tuple, Dict, Any, Optional, Union
 from datetime import datetime, timezone
 from backend.app.models.location import Location
+from backend.app.models.weather import WeatherObservation
 from backend.app.models.risk import RiskAssessment
 from backend.app.engine.base import (
     RiskLevel,
@@ -15,6 +16,7 @@ from backend.app.engine.base import (
     DataQualityReport,
     QualityStatus,
 )
+from backend.app.engine.data_validator import data_validator
 from backend.app.engine.factor_scorer import factor_scorer
 from backend.app.engine.confidence_calculator import confidence_calculator
 from backend.app.engine.reason_generator import reason_generator
@@ -32,6 +34,7 @@ class LandslideRiskAnalyzer:
     """
 
     def __init__(self):
+        self.validator = data_validator
         self.factor_scorer = factor_scorer
         self.confidence_calculator = confidence_calculator
         self.reason_generator = reason_generator
@@ -71,7 +74,6 @@ class LandslideRiskAnalyzer:
         if len(scores) < 2:
             return RiskTrajectory.UNKNOWN
 
-        # Calculate slope/delta over sequence
         deltas = [scores[i] - scores[i - 1] for i in range(1, len(scores))]
         total_delta = scores[-1] - scores[0]
 
@@ -90,23 +92,56 @@ class LandslideRiskAnalyzer:
     def assess_risk(
         self,
         location: Location,
-        env_state: EnvironmentalState,
-        terrain: TerrainProfile,
-        historical: HistoricalRiskContext,
-        anomalies: List[AnomalyResult],
-        trends: List[TrendResult],
-        is_persistent_rain: bool,
-        is_increasing_rain: bool,
+        env_state: Optional[EnvironmentalState] = None,
+        current_observation: Optional[WeatherObservation] = None,
+        terrain: Optional[TerrainProfile] = None,
+        historical: Optional[HistoricalRiskContext] = None,
+        anomalies: Optional[List[AnomalyResult]] = None,
+        trends: Optional[List[TrendResult]] = None,
+        is_persistent_rain: bool = False,
+        is_increasing_rain: bool = False,
         recent_assessments: Optional[List[RiskAssessment]] = None,
-        historical_points_count: int = 24
+        historical_points_count: int = 24,
+        historical_count: Optional[int] = None,
     ) -> AssessmentOutput:
         """
-        Executes full multi-signal assessment calculation:
-        1. Normalized factor scoring (0-1) & weighted point contribution
-        2. Signal agreement and multi-factor confidence calculation
-        3. Risk trajectory calculation
-        4. Machine-readable reason codes and diagnostic summary
+        Executes full multi-signal assessment calculation.
+        Accepts either normalized EnvironmentalState or raw WeatherObservation for backward compatibility.
         """
+        anomalies = anomalies or []
+        trends = trends or []
+        hist_count = historical_count if historical_count is not None else historical_points_count
+
+        # Normalize EnvironmentalState if raw observation was passed
+        if env_state is None:
+            if current_observation is not None:
+                _, env_state = self.validator.validate_observation(current_observation)
+            else:
+                now = datetime.now(timezone.utc)
+                env_state = EnvironmentalState(location_id=location.id, timestamp=now)
+
+        # Build terrain profile if not passed
+        if terrain is None:
+            slope = location.slope_angle if location.slope_angle is not None else 30.0
+            elev = location.elevation if location.elevation is not None else 1200.0
+            terrain_susc = min(1.0, (slope / 45.0) * 0.7 + (elev / 2500.0) * 0.3)
+            terrain = TerrainProfile(
+                location_id=location.id,
+                elevation=elev,
+                slope_angle=slope,
+                terrain_susceptibility=terrain_susc
+            )
+
+        # Build historical context if not passed
+        if historical is None:
+            susc = location.susceptibility_score if location.susceptibility_score is not None else 0.65
+            historical = HistoricalRiskContext(
+                location_id=location.id,
+                historical_landslide_events=12,
+                susceptibility_score=susc,
+                monsoon_vulnerability_index=min(1.0, susc * 0.8 + 0.15)
+            )
+
         # 1. Compute Factor Scores & Weighted Total Score
         factors, total_risk_score = self.factor_scorer.compute_all_factor_scores(
             env=env_state,
@@ -125,7 +160,7 @@ class LandslideRiskAnalyzer:
         confidence = self.confidence_calculator.calculate_confidence(
             quality=env_state.data_quality,
             signal_agreement=signal_agreement,
-            historical_points_count=historical_points_count
+            historical_points_count=hist_count
         )
 
         # 3. Risk Trajectory

@@ -62,8 +62,8 @@ class AssessmentReasonCode(str, Enum):
 @dataclass
 class DataQualityReport:
     status: QualityStatus
-    completeness_score: float  # 0.0 to 1.0 (ratio of non-null required fields)
-    freshness_score: float     # 0.0 to 1.0 (based on minutes since timestamp)
+    completeness_score: float = 1.0  # 0.0 to 1.0 (ratio of non-null required fields)
+    freshness_score: float = 1.0     # 0.0 to 1.0 (based on minutes since timestamp)
     missing_fields: List[str] = field(default_factory=list)
     invalid_fields: List[str] = field(default_factory=list)
     quality_notes: Optional[str] = None
@@ -184,8 +184,8 @@ class AssessmentOutput:
     risk_level: RiskLevel
     risk_score: float
     confidence_score: float
-    trajectory: RiskTrajectory
     reason: str
+    trajectory: RiskTrajectory = RiskTrajectory.STABLE
     reason_codes: List[AssessmentReasonCode] = field(default_factory=list)
     factors: List[FactorScoreDetail] = field(default_factory=list)
     anomalies: List[AnomalyResult] = field(default_factory=list)

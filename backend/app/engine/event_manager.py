@@ -23,11 +23,15 @@ class EventManager:
     ) -> Tuple[str, str]:
         """
         Maps risk score to EventStatus and DisasterEvent severity string
-        with hysteresis buffering against noisy score fluctuations.
+        with hysteresis buffering against noisy score fluctuations on downgrades.
         """
         buffer = settings.HYSTERESIS_DOWNGRADE_BUFFER  # e.g., 4.0 pts
 
-        # If existing event is in higher state, require buffer crossing before de-escalation
+        # Escalation checks ALWAYS take precedence
+        if risk_score >= settings.THRESHOLD_CRITICAL:    # >= 75.0
+            return EventStatus.CRITICAL.value, "CRITICAL"
+
+        # If existing event is in higher state, check downgrade hysteresis buffer
         if current_event and current_event.status != "RESOLVED":
             curr_sev = current_event.severity.upper()
 
@@ -40,19 +44,19 @@ class EventManager:
 
             # Hysteresis for HIGH -> ELEVATED
             if curr_sev == "HIGH":
-                if risk_score >= (settings.THRESHOLD_HIGH - buffer):  # >= 46.0
+                if risk_score >= settings.THRESHOLD_HIGH:
+                    return EventStatus.HIGH.value, "HIGH"
+                elif risk_score >= (settings.THRESHOLD_HIGH - buffer):  # >= 46.0
                     return EventStatus.HIGH.value, "HIGH"
                 elif risk_score >= settings.THRESHOLD_ELEVATED:
                     return EventStatus.ELEVATED.value, "MODERATE"
 
         # Standard Threshold Mapping
-        if risk_score >= settings.THRESHOLD_CRITICAL:    # >= 75
-            return EventStatus.CRITICAL.value, "CRITICAL"
-        elif risk_score >= settings.THRESHOLD_HIGH:       # >= 50
+        if risk_score >= settings.THRESHOLD_HIGH:       # >= 50.0
             return EventStatus.HIGH.value, "HIGH"
-        elif risk_score >= settings.THRESHOLD_ELEVATED:   # >= 40
+        elif risk_score >= settings.THRESHOLD_ELEVATED:   # >= 40.0
             return EventStatus.ELEVATED.value, "MODERATE"
-        elif risk_score >= settings.THRESHOLD_WATCH:      # >= 25
+        elif risk_score >= settings.THRESHOLD_WATCH:      # >= 25.0
             return EventStatus.WATCH.value, "LOW"
         elif current_event and current_event.status != "RESOLVED" and risk_score >= (settings.THRESHOLD_WATCH - buffer):
             return EventStatus.RESOLVING.value, "LOW"
