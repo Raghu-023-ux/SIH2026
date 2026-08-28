@@ -10,6 +10,7 @@ from backend.app.api.v1.endpoints import (
     ingestion,
     system,
     ai,
+    field,
 )
 
 api_router = APIRouter()
@@ -24,3 +25,4 @@ api_router.include_router(simulation.router, prefix="/simulation", tags=["Simula
 api_router.include_router(ingestion.router, prefix="/ingestion", tags=["Data Ingestion"])
 api_router.include_router(system.router, prefix="/system", tags=["System & Providers"])
 api_router.include_router(ai.router, prefix="/ai", tags=["Agentic AI Intelligence"])
+api_router.include_router(field.router, prefix="/field", tags=["Field Operations & Rescue"])
