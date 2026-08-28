@@ -12,7 +12,7 @@ class DisasterAnalystAgent:
     """
     Disaster Analyst Agent.
     Interprets current scientific engine assessments, evaluates risk drivers,
-    identifies sensor uncertainties, and generates tactical monitoring recommendations.
+    incorporates on-ground field observations, and generates tactical monitoring recommendations.
     """
 
     def __init__(self):
@@ -48,6 +48,10 @@ class DisasterAnalystAgent:
         # 6. Fetch Regional Nearby Stations
         nearby = await agent_tools.get_nearby_risk(session, location_id=location_id)
 
+        # 7. Fetch Field Reports & Assistance Requests (Prompt 6)
+        field_reports = await agent_tools.get_field_reports(session, location_id=location_id)
+        assistance_reqs = await agent_tools.get_assistance_requests(session, event_id=event.get("event_id")) if event.get("active_event") else {}
+
         # Build verified context
         context_data = {
             "location": loc,
@@ -56,6 +60,8 @@ class DisasterAnalystAgent:
             "quality": quality,
             "event": event,
             "nearby": nearby,
+            "field_reports": field_reports,
+            "assistance_requests": assistance_reqs,
         }
 
         # Add base assessment evidence
@@ -73,11 +79,12 @@ class DisasterAnalystAgent:
         system_prompt = (
             "You are the Lead Disaster Analyst Agent for the North Eastern Region Landslide Early Warning System. "
             "You provide rigorous, evidence-backed situational intelligence to operational command officers. "
+            "You synthesize both scientific sensor assessments and on-ground field observations. "
             "You MUST NEVER alter or question the scientific engine's mathematical risk score. "
-            "All claims must cite verified sensor telemetry and factor contributions."
+            "All claims must cite verified sensor telemetry, factor contributions, and ground truth reports."
         )
 
-        user_prompt = question or f"Provide a complete situational analysis of landslide risk for {loc.get('name')}."
+        user_prompt = question or f"Provide a complete situational analysis of landslide risk and field observations for {loc.get('name')}."
 
         analysis = await self.provider.generate_structured_analysis(
             system_prompt=system_prompt,

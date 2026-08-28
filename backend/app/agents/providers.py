@@ -51,6 +51,8 @@ class MockLLMProvider(LLMProvider):
         event = context_data.get("event", {})
         quality = context_data.get("quality", {}).get("data_quality", {})
         nearby = context_data.get("nearby", {}).get("stations", [])
+        field_reports_data = context_data.get("field_reports", {}).get("reports", [])
+        assistance_data = context_data.get("assistance_requests", {}).get("requests", [])
 
         loc_name = location.get("name", "Target Monitoring Node")
         loc_id = location.get("id", "NER-STATION")
@@ -116,7 +118,33 @@ class MockLLMProvider(LLMProvider):
                     )
                 )
 
-        # 3. Regional Neighbor Findings
+        # 3. Field Ground-Truth Corroboration (Prompt 6 Enhancement)
+        if field_reports_data:
+            road_blocks = [r for r in field_reports_data if r.get("report_type") == "ROAD_BLOCKED"]
+            landslides_seen = [r for r in field_reports_data if r.get("report_type") == "LANDSLIDE_OBSERVED"]
+
+            ev_field = EvidenceReference(
+                evidence_type="FIELD_GROUND_TRUTH",
+                metric="rescue_team_reports",
+                value=f"{len(field_reports_data)} observations ({len(road_blocks)} road blockages, {len(landslides_seen)} slope movements)",
+                notes=f"Latest: {field_reports_data[0].get('description')}"
+            )
+            evidence.append(ev_field)
+
+            findings.append(
+                AgentFinding(
+                    type="field_observation",
+                    title=f"On-Ground Rescue Intelligence ({len(field_reports_data)} Reports)",
+                    description=(
+                        f"Field rescue teams report ground conditions in sector: "
+                        f"{field_reports_data[0].get('description')} "
+                        f"(Reported by {field_reports_data[0].get('reported_by')}, status: {field_reports_data[0].get('status')})."
+                    ),
+                    evidence=[ev_field]
+                )
+            )
+
+        # 4. Regional Neighbor Findings
         elevated_neighbors = [n for n in nearby if n.get("risk_score", 0.0) >= 40.0]
         if elevated_neighbors:
             n_names = ", ".join([f"{n.get('name')} ({n.get('risk_score', 0):.0f})" for n in elevated_neighbors[:2]])
@@ -136,9 +164,8 @@ class MockLLMProvider(LLMProvider):
                 )
             )
 
-        # 4. Data Quality & Uncertainty Assessment
+        # 5. Data Quality & Uncertainty Assessment
         comp_score = quality.get("completeness_score", 1.0)
-        fresh_score = quality.get("freshness_score", 1.0)
         missing = quality.get("missing_fields", [])
 
         if comp_score < 0.9 or missing:
@@ -158,7 +185,17 @@ class MockLLMProvider(LLMProvider):
                 )
             )
 
-        # 5. Operational Recommendations
+        # 6. Operational Recommendations & SOS Handling
+        active_sos = [a for a in assistance_data if a.get("status") in ["REQUESTED", "ACKNOWLEDGED"]]
+        if active_sos:
+            recommendations.append(
+                AgentRecommendation(
+                    priority="CRITICAL",
+                    action=f"Dispatch Backup for Unit SOS ({active_sos[0].get('request_type')})",
+                    rationale=f"Field unit urgently requested assistance: {active_sos[0].get('description')}"
+                )
+            )
+
         if risk_score >= 75.0:
             recommendations.append(
                 AgentRecommendation(
@@ -198,13 +235,15 @@ class MockLLMProvider(LLMProvider):
                 )
             )
 
-        # 6. Concise Expert Summary
+        # 7. Concise Expert Summary
         summary_text = (
             f"At {loc_name}, landslide risk is currently assessed at {risk_score:.1f}/100 ({risk_level}) "
             f"with assessment confidence at {confidence * 100.0:.0f}% and trajectory classified as {trajectory}. "
             f"The primary risk drivers are " + ", ".join([f.get("name", "").replace("_", " ") for f in top_drivers[:2]]) + ". "
-            f"This analysis is operating under {settings.DATA_MODE} data ingestion."
         )
+        if field_reports_data:
+            summary_text += f"Ground rescue teams have submitted {len(field_reports_data)} sector observations. "
+        summary_text += f"This analysis is operating under {settings.DATA_MODE} data ingestion."
 
         return AgentAnalysis(
             summary=summary_text,
@@ -242,9 +281,7 @@ class HttpLLMProvider(LLMProvider):
             logger.info("No LLM API key detected. Utilizing deterministic analytical provider.")
             return await self.mock_fallback.generate_structured_analysis(system_prompt, user_prompt, evidence, context_data)
 
-        # In production with API key, calls LLM; falls back to Mock on any error
         try:
-            # Format prompt with verified scientific facts
             return await self.mock_fallback.generate_structured_analysis(system_prompt, user_prompt, evidence, context_data)
         except Exception as err:
             logger.warning(f"External LLM call failed ({err}). Falling back to deterministic analysis.")

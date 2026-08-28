@@ -1,7 +1,7 @@
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 import math
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.models.location import Location
@@ -9,6 +9,12 @@ from backend.app.models.weather import WeatherObservation
 from backend.app.models.risk import RiskAssessment
 from backend.app.models.event import DisasterEvent
 from backend.app.models.history import RiskAssessmentHistory
+from backend.app.models.field import (
+    FieldTeam,
+    FieldReport,
+    AssistanceRequest,
+    OperationalMessage,
+)
 from backend.app.providers.health import provider_health_registry
 from backend.app.core.config import settings
 from backend.app.schemas.ai import EvidenceReference
@@ -16,7 +22,7 @@ from backend.app.schemas.ai import EvidenceReference
 
 class AgentToolRegistry:
     """
-    Read-only tool interface providing verified disaster intelligence data to specialized agents.
+    Read-only tool interface providing verified disaster intelligence and field evidence to specialized agents.
     Strictly prohibits database writes, risk mutation, or unauthorized updates.
     """
 
@@ -53,7 +59,6 @@ class AgentToolRegistry:
         res = await session.execute(stmt)
         obs_list = list(res.scalars().all())
         if not obs_list:
-            # Fallback to evaluate location to ensure observations exist
             loc_stmt = select(Location).where(Location.id == location_id)
             loc = (await session.execute(loc_stmt)).scalars().first()
             if loc:
@@ -96,7 +101,6 @@ class AgentToolRegistry:
         latest = res.scalars().first()
 
         if not latest:
-            # Dynamically run engine evaluation on location so assessment is always available
             loc_stmt = select(Location).where(Location.id == location_id)
             loc = (await session.execute(loc_stmt)).scalars().first()
             if loc:
@@ -108,7 +112,6 @@ class AgentToolRegistry:
         if not latest:
             return {"error": "No scientific risk assessment found for this location."}
 
-        # Also fetch latest detailed history for trajectory and agreement
         hist_stmt = (
             select(RiskAssessmentHistory)
             .where(RiskAssessmentHistory.location_id == location_id)
@@ -146,7 +149,6 @@ class AgentToolRegistry:
         records = list(res.scalars().all())
 
         if not records:
-            # If no history yet, ensure station is evaluated
             loc_stmt = select(Location).where(Location.id == location_id)
             loc = (await session.execute(loc_stmt)).scalars().first()
             if loc:
@@ -257,7 +259,6 @@ class AgentToolRegistry:
             if loc.id == target.id:
                 continue
 
-            # Haversine distance
             lat1, lon1 = math.radians(target.latitude), math.radians(target.longitude)
             lat2, lon2 = math.radians(loc.latitude), math.radians(loc.longitude)
             dlat = lat2 - lat1
@@ -267,7 +268,6 @@ class AgentToolRegistry:
             dist_km = 6371.0 * c
 
             if dist_km <= radius_km:
-                # Get latest assessment
                 assess_stmt = (
                     select(RiskAssessment)
                     .where(RiskAssessment.location_id == loc.id)
@@ -324,6 +324,118 @@ class AgentToolRegistry:
             "historical_recorded_events_10yr": 18 if "SIK" in loc.id else (22 if "MIZ" in loc.id else 10),
             "data_period": "10-year baseline demonstration profile",
             "is_simulated_baseline": True
+        }
+
+    # --- PROMPT 6 NEW READ-ONLY TOOLS FOR FIELD INTELLIGENCE ---
+    @staticmethod
+    async def get_field_reports(
+        session: AsyncSession,
+        location_id: Optional[str] = None,
+        event_id: Optional[str] = None,
+        limit: int = 10
+    ) -> Dict[str, Any]:
+        """Retrieves ground-truth observations and road status reports submitted by on-ground rescue teams."""
+        stmt = select(FieldReport)
+        filters = []
+        if location_id:
+            filters.append(FieldReport.location_id == location_id)
+        if event_id:
+            filters.append(FieldReport.event_id == event_id)
+        if filters:
+            stmt = stmt.where(and_(*filters))
+
+        stmt = stmt.order_by(FieldReport.timestamp.desc()).limit(limit)
+        reports = list((await session.execute(stmt)).scalars().all())
+
+        return {
+            "location_id": location_id,
+            "event_id": event_id,
+            "reports_count": len(reports),
+            "reports": [
+                {
+                    "id": r.id,
+                    "report_type": r.report_type,
+                    "severity": r.severity,
+                    "description": r.description,
+                    "reported_by": r.reported_by,
+                    "status": r.status,
+                    "timestamp": r.timestamp.isoformat()
+                }
+                for r in reports
+            ]
+        }
+
+    @staticmethod
+    async def get_field_team_status(session: AsyncSession, team_id: Optional[str] = None, event_id: Optional[str] = None) -> Dict[str, Any]:
+        """Retrieves status and deployment locations of rescue units."""
+        stmt = select(FieldTeam)
+        if team_id:
+            stmt = stmt.where(FieldTeam.id == team_id)
+        elif event_id:
+            stmt = stmt.where(FieldTeam.assigned_event_id == event_id)
+
+        teams = list((await session.execute(stmt)).scalars().all())
+        return {
+            "teams_count": len(teams),
+            "teams": [
+                {
+                    "team_name": t.team_name,
+                    "callsign": t.callsign,
+                    "status": t.status,
+                    "contact_channel": t.contact_channel,
+                    "last_active": t.last_active_at.isoformat()
+                }
+                for t in teams
+            ]
+        }
+
+    @staticmethod
+    async def get_assistance_requests(session: AsyncSession, event_id: Optional[str] = None) -> Dict[str, Any]:
+        """Retrieves active emergency SOS assistance requests from rescue personnel."""
+        stmt = select(AssistanceRequest)
+        if event_id:
+            stmt = stmt.where(AssistanceRequest.event_id == event_id)
+        stmt = stmt.order_by(AssistanceRequest.created_at.desc()).limit(10)
+        reqs = list((await session.execute(stmt)).scalars().all())
+
+        return {
+            "requests_count": len(reqs),
+            "active_sos_count": sum(1 for r in reqs if r.status in ["REQUESTED", "ACKNOWLEDGED"]),
+            "requests": [
+                {
+                    "id": r.id,
+                    "request_type": r.request_type,
+                    "priority": r.priority,
+                    "description": r.description,
+                    "status": r.status,
+                    "created_at": r.created_at.isoformat()
+                }
+                for r in reqs
+            ]
+        }
+
+    @staticmethod
+    async def get_operational_messages(session: AsyncSession, event_id: Optional[str] = None) -> Dict[str, Any]:
+        """Retrieves central command directives and acknowledgments for this event."""
+        stmt = select(OperationalMessage)
+        if event_id:
+            stmt = stmt.where(OperationalMessage.event_id == event_id)
+        stmt = stmt.order_by(OperationalMessage.created_at.desc()).limit(10)
+        msgs = list((await session.execute(stmt)).scalars().all())
+
+        return {
+            "messages_count": len(msgs),
+            "messages": [
+                {
+                    "id": m.id,
+                    "priority": m.priority,
+                    "message": m.message,
+                    "recipient": m.recipient_team,
+                    "acknowledged_by": m.acknowledged_by,
+                    "created_at": m.created_at.isoformat()
+                }
+                for m in msgs
+            ]
         }
 
 
