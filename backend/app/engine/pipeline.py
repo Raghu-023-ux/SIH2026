@@ -10,15 +10,16 @@ from backend.app.models.event import DisasterEvent
 from backend.app.models.history import RiskAssessmentHistory
 
 from backend.app.engine.base import AssessmentOutput, RiskLevel, EnvironmentalState
-from backend.app.engine.data_validator import data_validator
 from backend.app.engine.anomaly_detector import AnomalyDetector
 from backend.app.engine.trend_analyzer import TrendAnalyzer
-from backend.app.engine.terrain_source import terrain_data_source
-from backend.app.engine.historical_source import historical_risk_source
 from backend.app.engine.landslide_risk_analyzer import landslide_risk_analyzer
 from backend.app.engine.risk_aggregator import RiskAggregator
 from backend.app.engine.event_manager import event_manager
-from backend.app.services.ingestion import mock_data_source
+from backend.app.services.environmental_data_service import (
+    environmental_data_service,
+    EnvironmentalDataService,
+    EnvironmentalStatePackage,
+)
 
 from backend.app.schemas.engine import (
     AnomalyReport,
@@ -33,48 +34,20 @@ from backend.app.core.logging import logger
 class DisasterIntelligenceEngine:
     """
     Upgraded Multi-Signal Disaster Intelligence Pipeline.
-    Orchestrates Data Validation, Environmental Normalization,
-    Statistical Anomaly Detection, Temporal Trend/Persistence Analysis,
-    Terrain Profile Integration, Historical Susceptibility,
-    Factor Scoring, Multi-Signal Agreement, and Event State Machine.
+    Strictly separated from data collection.
+    Consumes validated EnvironmentalStatePackage from EnvironmentalDataService
+    and executes deterministic anomaly detection, trend calculation,
+    multi-signal factor scoring, signal agreement, debounced event transitions,
+    and audit trail persistence.
     """
 
-    def __init__(self):
-        self.validator = data_validator
+    def __init__(self, data_service: Optional[EnvironmentalDataService] = None):
+        self.data_service = data_service or environmental_data_service
         self.anomaly_detector = AnomalyDetector()
         self.trend_analyzer = TrendAnalyzer()
-        self.terrain_source = terrain_data_source
-        self.historical_source = historical_risk_source
         self.risk_analyzer = landslide_risk_analyzer
         self.risk_aggregator = RiskAggregator()
         self.event_manager = event_manager
-
-    async def get_or_ingest_observations(
-        self,
-        session: AsyncSession,
-        location_id: str,
-        force_fresh: bool = False
-    ) -> List[WeatherObservation]:
-        """
-        Retrieves existing observations from DB or generates initial baseline if empty.
-        """
-        stmt = (
-            select(WeatherObservation)
-            .where(WeatherObservation.location_id == location_id)
-            .order_by(WeatherObservation.timestamp.asc())
-        )
-        res = await session.execute(stmt)
-        observations = list(res.scalars().all())
-
-        if not observations or force_fresh:
-            logger.info(f"Ingesting fresh simulated observations for location {location_id}")
-            fresh_obs = await mock_data_source.fetch(location_id=location_id, limit=24)
-            for obs in fresh_obs:
-                session.add(obs)
-            await session.flush()
-            observations = fresh_obs
-
-        return observations
 
     async def evaluate_location(
         self,
@@ -85,28 +58,24 @@ class DisasterIntelligenceEngine:
         """
         Runs the multi-signal assessment pipeline on a monitored location.
         """
-        # 1. Fetch raw observations
-        observations = await self.get_or_ingest_observations(session, location.id, force_fresh=force_fresh)
-        if not observations:
-            raise ValueError(f"No observations available for location {location.id}")
+        # 1. Collect and validate full environmental package from ingestion service
+        pkg: EnvironmentalStatePackage = await self.data_service.collect_environmental_package(
+            session=session,
+            location=location,
+            force_fresh=force_fresh
+        )
 
-        # 2. Stage 1 & 2: Data Validation and Normalization into EnvironmentalState
-        env_states, quality_report = self.validator.validate_series(observations)
-        latest_env = env_states[-1]
+        observations = pkg.observations
         historical_obs = observations[:-1] if len(observations) > 1 else observations
-        latest_raw = observations[-1]
+        latest_raw = observations[-1] if observations else WeatherObservation(location_id=location.id, timestamp=datetime.now(timezone.utc))
 
-        # 3. Stage 3: Statistical Anomaly Detection
+        # 2. Stage 3: Statistical Anomaly Detection
         anomalies = self.anomaly_detector.detect_anomalies(latest_raw, historical_obs)
 
-        # 4. Stage 4: Temporal Trend & Persistence Analysis
+        # 3. Stage 4: Temporal Trend & Persistence Analysis
         trends, is_persistent, is_increasing = self.trend_analyzer.analyze_trends(observations)
 
-        # 5. Stage 5: Terrain and Historical Context Retrieval
-        terrain_profile = await self.terrain_source.get_terrain_profile(location)
-        historical_context = await self.historical_source.get_historical_context(location)
-
-        # 6. Fetch recent historical risk assessments for trajectory analysis
+        # 4. Fetch recent historical risk assessments for trajectory analysis
         recent_assess_stmt = (
             select(RiskAssessment)
             .where(RiskAssessment.location_id == location.id)
@@ -116,12 +85,12 @@ class DisasterIntelligenceEngine:
         recent_assess_res = await session.execute(recent_assess_stmt)
         recent_assessments = list(recent_assess_res.scalars().all())
 
-        # 7. Stage 6, 7 & 8: Landslide Risk Calculation, Signal Agreement, Confidence, Reasons, Trajectory
+        # 5. Stage 6, 7 & 8: Landslide Risk Calculation, Signal Agreement, Confidence, Reasons, Trajectory
         assessment_output = self.risk_analyzer.assess_risk(
             location=location,
-            env_state=latest_env,
-            terrain=terrain_profile,
-            historical=historical_context,
+            env_state=pkg.latest_env,
+            terrain=pkg.terrain,
+            historical=pkg.historical,
             anomalies=anomalies,
             trends=trends,
             is_persistent_rain=is_persistent,
@@ -130,7 +99,7 @@ class DisasterIntelligenceEngine:
             historical_points_count=len(observations)
         )
 
-        # 8. Persist Risk Assessment Record
+        # 6. Persist Risk Assessment Record
         db_assessment = RiskAssessment(
             location_id=location.id,
             timestamp=assessment_output.timestamp,
@@ -144,14 +113,14 @@ class DisasterIntelligenceEngine:
         )
         session.add(db_assessment)
 
-        # 9. Stage 9: Process Event Lifecycle State Machine
+        # 7. Stage 9: Process Event Lifecycle State Machine
         event, action = await self.event_manager.process_assessment_event(
             session=session,
             location=location,
             assessment=assessment_output
         )
 
-        # 10. Persist Detailed Assessment History for Auditing & Trend Analysis
+        # 8. Persist Detailed Assessment History for Auditing & Trend Analysis
         history_record = RiskAssessmentHistory(
             event_id=event.id if event else None,
             location_id=location.id,
