@@ -1,74 +1,43 @@
+version: "3.8"
+
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: sih_postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: sih_user
-      POSTGRES_PASSWORD: sih_password
-      POSTGRES_DB: sih_disaster_db
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sih_user -d sih_disaster_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7-alpine
-    container_name: sih_redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: sih_backend
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: sih26001-backend
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    environment:
-      DATABASE_URL: postgresql+asyncpg://sih_user:sih_password@postgres:5432/sih_disaster_db
-      REDIS_URL: redis://redis:6379/0
-      ENVIRONMENT: development
-      LOG_LEVEL: INFO
     ports:
       - "8000:8000"
+    environment:
+      - DATA_MODE=LIVE
+      - DATABASE_URL=sqlite+aiosqlite:///./data/landslide_dss.db
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+      - CORS_ORIGINS=["http://localhost:3000","http://127.0.0.1:3000"]
     volumes:
-      - ./backend:/app
+      - backend_data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/system/status"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: sih_frontend
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: sih26001-frontend
     restart: unless-stopped
-    depends_on:
-      - backend
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
     ports:
       - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      backend:
+        condition: service_healthy
 
 volumes:
-  postgres_data:
-  redis_data:
+  backend_data:
+    driver: local
