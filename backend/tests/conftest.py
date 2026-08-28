@@ -5,6 +5,7 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
 from backend.app.core.database import Base, get_db
+from backend.app.core.config import settings
 from backend.app.main import app
 from backend.app.services.location_service import LocationService
 
@@ -24,6 +25,10 @@ TestSessionLocal = async_sessionmaker(
 
 @pytest_asyncio.fixture(scope="function")
 async def db_session():
+    # Set data mode to SIMULATION for fast, reliable, offline-safe unit test execution
+    original_mode = settings.DATA_MODE
+    settings.DATA_MODE = "SIMULATION"
+
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
@@ -34,6 +39,8 @@ async def db_session():
 
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
+
+    settings.DATA_MODE = original_mode
 
 
 @pytest_asyncio.fixture(scope="function")

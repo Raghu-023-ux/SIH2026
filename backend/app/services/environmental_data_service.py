@@ -87,32 +87,44 @@ class EnvironmentalDataService:
     ) -> Tuple[List[WeatherObservation], str, bool]:
         """
         Retrieves weather telemetry with resilient multi-tier fallback:
-        Tier 1: Cache (if not force_fresh)
-        Tier 2: Live Provider (Open-Meteo) if DATA_MODE == 'LIVE'
-        Tier 3: Database Historical Cached Observations
+        Tier 1: In-memory Cache (if not force_fresh)
+        Tier 2: Database existing observations (if not force_fresh and DB has records)
+        Tier 3: Live Provider (Open-Meteo) if DATA_MODE == 'LIVE'
         Tier 4: Simulation Fallback (Mock Provider)
         Returns: (observations, source_name, is_live)
         """
         cache_key = f"weather_obs:{location.id}"
         is_live = settings.DATA_MODE == "LIVE"
 
-        # Tier 1: Cache Check
+        # Tier 1 & Tier 2: Check Cache and DB when not forcing a fresh fetch
         if not force_fresh:
+            # 1. Cache
             cached_data = await cache.get(cache_key)
             if cached_data:
                 logger.debug(f"Cache HIT for weather observations at {location.name}")
                 provider_health_registry.record_success("cache-subsystem", 0.2)
-                # Reconstruct models from cache
                 obs_list = [WeatherObservation(**item) for item in cached_data]
                 return obs_list, obs_list[-1].source if obs_list else "CACHED", is_live
 
-        # Tier 2: Query Live Provider
+            # 2. Database existing observations (e.g. from prior runs or scenario injections)
+            db_stmt = (
+                select(WeatherObservation)
+                .where(WeatherObservation.location_id == location.id)
+                .order_by(WeatherObservation.timestamp.asc())
+            )
+            db_res = await session.execute(db_stmt)
+            db_obs = list(db_res.scalars().all())
+
+            if db_obs and len(db_obs) >= 6:
+                source_name = db_obs[-1].source or "DATABASE"
+                return db_obs, source_name, (source_name == "OPEN_METEO")
+
+        # Tier 3: Query Live Provider if in LIVE mode
         if is_live:
             try:
                 logger.info(f"Querying live Open-Meteo provider for {location.name} ({location.latitude}, {location.longitude})")
                 obs = await self.live_weather.get_observations(location, limit=24)
                 if obs:
-                    # Update cache with serializable dicts
                     serializable = [
                         {
                             "location_id": o.location_id,
@@ -137,19 +149,6 @@ class EnvironmentalDataService:
 
             except Exception as err:
                 logger.warning(f"Live provider failed for {location.name} ({err}). Engaging graceful fallback...")
-
-        # Tier 3: Query Database for existing observations
-        db_stmt = (
-            select(WeatherObservation)
-            .where(WeatherObservation.location_id == location.id)
-            .order_by(WeatherObservation.timestamp.asc())
-        )
-        db_res = await session.execute(db_stmt)
-        db_obs = list(db_res.scalars().all())
-
-        if db_obs and len(db_obs) >= 6:
-            logger.info(f"Retrieved {len(db_obs)} existing observations from DB for {location.name}")
-            return db_obs, f"CACHED_DB ({db_obs[-1].source})", False
 
         # Tier 4: Fallback to Deterministic Simulation
         logger.info(f"Fallback to simulation weather provider for {location.name}")

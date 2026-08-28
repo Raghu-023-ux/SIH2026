@@ -36,7 +36,7 @@ class WeatherObservation(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
-    location = relationship("Location", back_populates="weather_observations")
+    location = relationship("Location", back_populates="observations")
 
     __table_args__ = (
         Index("idx_weather_loc_time", "location_id", "timestamp"),
