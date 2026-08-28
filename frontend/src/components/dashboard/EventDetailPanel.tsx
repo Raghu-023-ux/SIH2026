@@ -25,6 +25,7 @@ import {
   Sparkles,
   FileText,
   Compass,
+  Radio,
 } from "lucide-react";
 
 interface EventDetailPanelProps {
@@ -63,6 +64,8 @@ export default function EventDetailPanel({
   isAcknowledging,
   onOpenInvestigate,
   onAskAI,
+  onOpenBroadcast,
+  onOpenSitRep,
 }: EventDetailPanelProps) {
   if (!location) {
     return (
