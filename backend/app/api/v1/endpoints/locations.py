@@ -15,7 +15,14 @@ from backend.app.schemas.risk import RiskAssessmentResponse
 from backend.app.schemas.event import DisasterEventResponse
 from backend.app.schemas.engine import EngineAssessmentResponse
 from backend.app.schemas.dashboard import LocationMapItem, LocationInvestigationResponse, EventTimelineMilestone
+from backend.app.schemas.scientific import (
+    ScientificStationInvestigationResponse,
+    RainfallAnalysisPackage,
+    SoilMoistureAnalysisPackage,
+    TimelineSeriesPoint,
+)
 from backend.app.services.location_service import LocationService
+from backend.app.services.scientific_indicators_service import scientific_indicators_service
 from backend.app.engine.pipeline import disaster_engine
 from backend.app.engine.data_validator import data_validator
 
@@ -275,3 +282,82 @@ async def investigate_location(location_id: str, db: AsyncSession = Depends(get_
         risk_history=[RiskAssessmentResponse.model_validate(r) for r in risk_history],
         event_timeline=milestones
     )
+
+
+@router.get("/{location_id}/scientific-analysis", response_model=ScientificStationInvestigationResponse)
+async def get_scientific_station_investigation(
+    location_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Comprehensive scientific hydro-meteorological, rainfall accumulation,
+    soil moisture profile, intensity-duration, and evidence attribution workspace.
+    """
+    location = await LocationService.get_location_by_id(db, location_id)
+    if not location:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Location with ID '{location_id}' not found."
+        )
+
+    payload = await scientific_indicators_service.build_scientific_investigation(db, location)
+    return payload
+
+
+@router.get("/{location_id}/rainfall-analysis", response_model=RainfallAnalysisPackage)
+async def get_station_rainfall_analysis(
+    location_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Specialized rainfall analysis: intensity rates, rolling accumulation table,
+    persistence spells, antecedent wetness, anomaly deviation, and I-D curve comparison.
+    """
+    location = await LocationService.get_location_by_id(db, location_id)
+    if not location:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Location '{location_id}' not found.")
+
+    obs_stmt = select(WeatherObservation).where(WeatherObservation.location_id == location.id).order_by(WeatherObservation.timestamp.asc()).limit(72)
+    obs = list((await db.execute(obs_stmt)).scalars().all())
+    return scientific_indicators_service.calculate_rainfall_metrics(obs, location)
+
+
+@router.get("/{location_id}/soil-analysis", response_model=SoilMoistureAnalysisPackage)
+async def get_station_soil_analysis(
+    location_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Specialized subsurface moisture analysis: multi-depth vertical profile,
+    temporal trend rate of change, and historical seasonal percentile.
+    """
+    location = await LocationService.get_location_by_id(db, location_id)
+    if not location:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Location '{location_id}' not found.")
+
+    obs_stmt = select(WeatherObservation).where(WeatherObservation.location_id == location.id).order_by(WeatherObservation.timestamp.asc()).limit(72)
+    obs = list((await db.execute(obs_stmt)).scalars().all())
+    return scientific_indicators_service.calculate_soil_moisture_metrics(obs, location)
+
+
+@router.get("/{location_id}/risk-timeline", response_model=List[TimelineSeriesPoint])
+async def get_station_risk_timeline(
+    location_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Aligned multi-series timeline: rainfall rate, 24h cumulative rainfall,
+    soil moisture, risk score, confidence, and milestone event markers.
+    """
+    location = await LocationService.get_location_by_id(db, location_id)
+    if not location:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Location '{location_id}' not found.")
+
+    obs_stmt = select(WeatherObservation).where(WeatherObservation.location_id == location.id).order_by(WeatherObservation.timestamp.asc()).limit(72)
+    obs = list((await db.execute(obs_stmt)).scalars().all())
+
+    risk_stmt = select(RiskAssessment).where(RiskAssessment.location_id == location.id).order_by(RiskAssessment.timestamp.desc()).limit(30)
+    risks = list((await db.execute(risk_stmt)).scalars().all())
+
+    return scientific_indicators_service.build_multi_series_timeline(obs, risks)
+
