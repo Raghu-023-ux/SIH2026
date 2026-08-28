@@ -83,6 +83,9 @@ export interface WeatherObservationItem {
   rainfall_24h?: number | null;
   soil_moisture?: number | null;
   source: string;
+  source_version?: string;
+  freshness_status?: string;
+  retrieved_at?: string;
   created_at: string;
 }
 
@@ -126,6 +129,20 @@ export interface EventTimelineMilestoneItem {
   severity?: string | null;
 }
 
+export interface ProviderHealthItem {
+  name: string;
+  status: string;
+  source_type: string;
+  last_success?: string | null;
+  last_failure?: string | null;
+  consecutive_failures: number;
+  total_requests: number;
+  successful_requests: number;
+  failed_requests: number;
+  last_latency_ms?: number | null;
+  error_message?: string | null;
+}
+
 export interface DashboardSummaryData {
   active_events_count: number;
   critical_events_count: number;
@@ -137,6 +154,7 @@ export interface DashboardSummaryData {
   highest_risk_level: string;
   last_engine_run: string;
   data_sources_status: string;
+  data_mode?: string;
 }
 
 export interface LocationInvestigationData {

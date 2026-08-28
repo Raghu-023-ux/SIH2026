@@ -1,105 +1,149 @@
 "use client";
 
 import React from "react";
-import { Activity, RefreshCw, ShieldAlert, Radio, UserCheck, Clock, CheckCircle2 } from "lucide-react";
+import {
+  Activity,
+  AlertOctagon,
+  CheckCircle2,
+  RefreshCw,
+  Sliders,
+  Shield,
+  Clock,
+  Radio,
+  CloudLightning,
+  CloudDownload,
+  Wifi,
+} from "lucide-react";
 
 interface CommandHeaderProps {
   engineOnline: boolean;
   lastUpdated: string | null;
   dataSourcesStatus: string;
+  dataMode: string;
+  onToggleDataMode: (mode: string) => Promise<void>;
   onTriggerEngineRun: () => void;
+  onTriggerBatchIngest: () => void;
   isRunningEngine: boolean;
-  autoRefreshInterval: number; // in seconds, 0 = paused
-  onToggleAutoRefresh: (sec: number) => void;
+  isIngesting: boolean;
+  autoRefreshInterval: number;
+  onToggleAutoRefresh: (interval: number) => void;
 }
 
 export default function CommandHeader({
   engineOnline,
   lastUpdated,
   dataSourcesStatus,
+  dataMode,
+  onToggleDataMode,
   onTriggerEngineRun,
+  onTriggerBatchIngest,
   isRunningEngine,
+  isIngesting,
   autoRefreshInterval,
   onToggleAutoRefresh,
 }: CommandHeaderProps) {
+  const isLiveMode = dataMode.toUpperCase() === "LIVE";
+
   return (
-    <header className="bg-slate-900/90 border-b border-slate-800 px-4 py-2.5 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-md">
-      {/* Left: Branding & Sub-label */}
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-lg bg-indigo-600 border border-indigo-400/40 flex items-center justify-center shadow-md shadow-indigo-950 flex-shrink-0">
-          <ShieldAlert className="w-5 h-5 text-white" />
+    <header className="bg-slate-900 border-b border-slate-800 px-4 py-3 sm:px-6 shadow-lg">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        {/* Left: Brand / Title */}
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 shadow-inner">
+            <CloudLightning className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-mono tracking-widest text-indigo-400 uppercase font-bold">
+                SIH26001 • Landslide Early Warning
+              </span>
+              <span className="bg-indigo-950 text-indigo-300 border border-indigo-800 text-[10px] font-mono px-1.5 py-0.2 rounded font-semibold">
+                NER DSS v0.3
+              </span>
+            </div>
+            <h1 className="text-lg sm:text-xl font-black tracking-tight text-slate-100 flex items-center gap-2">
+              Disaster Intelligence Command Center
+            </h1>
+          </div>
         </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-base font-bold text-slate-100 tracking-tight">
-              Disaster Intelligence
-            </span>
-            <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-indigo-950/80 text-indigo-300 border border-indigo-800">
-              COMMAND CENTER
+
+        {/* Right: Operational Controls & Mode Selector */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Live vs Simulation Mode Switcher */}
+          <div className="flex items-center bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-xs font-mono">
+            <button
+              onClick={() => onToggleDataMode("LIVE")}
+              className={`px-2.5 py-1 rounded-md transition font-bold flex items-center gap-1.5 ${
+                isLiveMode
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <Wifi className="w-3 h-3" />
+              LIVE DATA
+            </button>
+
+            <button
+              onClick={() => onToggleDataMode("SIMULATION")}
+              className={`px-2.5 py-1 rounded-md transition font-bold flex items-center gap-1.5 ${
+                !isLiveMode
+                  ? "bg-amber-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <Sliders className="w-3 h-3" />
+              SIMULATION
+            </button>
+          </div>
+
+          {/* Engine Status Indicator */}
+          <div className="flex items-center gap-2 bg-slate-950/90 border border-slate-800 px-3 py-1.5 rounded-lg text-xs font-mono">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                engineOnline ? "bg-emerald-400 animate-pulse shadow-emerald-500/50 shadow-sm" : "bg-red-500"
+              }`}
+            />
+            <span className="text-slate-300 font-medium">
+              {engineOnline ? "ENGINE ONLINE" : "OFFLINE"}
             </span>
           </div>
-          <div className="text-[11px] text-slate-400 font-medium">
-            SIH26001 | North Eastern Region Landslide Risk Monitoring
-          </div>
-        </div>
-      </div>
 
-      {/* Center/Right: Operational Indicators & Officer Controls */}
-      <div className="flex flex-wrap items-center gap-2.5 text-xs">
-        {/* Engine Status Pill */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-950 border border-slate-800 font-mono">
-          <span
-            className={`w-2 h-2 rounded-full ${
-              engineOnline ? "bg-emerald-400 animate-ping" : "bg-red-500"
-            }`}
-          />
-          <span className={engineOnline ? "text-emerald-300 font-bold" : "text-red-400 font-bold"}>
-            {engineOnline ? "ENGINE ONLINE" : "ENGINE OFFLINE"}
-          </span>
-        </div>
+          {/* Ingest Live Feeds Button */}
+          {isLiveMode && (
+            <button
+              onClick={onTriggerBatchIngest}
+              disabled={isIngesting}
+              className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 shadow-sm font-mono"
+            >
+              <CloudDownload className={`w-3.5 h-3.5 ${isIngesting ? "animate-spin" : ""}`} />
+              {isIngesting ? "Ingesting Open-Meteo..." : "Ingest Live Feeds"}
+            </button>
+          )}
 
-        {/* Data Source Indicator */}
-        <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-950/70 border border-slate-800 text-slate-300 font-mono text-[11px]">
-          <Radio className="w-3 h-3 text-amber-400 animate-pulse" />
-          <span className="text-slate-400">TELEMETRY:</span>
-          <span className="text-slate-200 truncate max-w-[160px]">{dataSourcesStatus}</span>
-        </div>
-
-        {/* Last Updated */}
-        <div className="flex items-center gap-1 text-slate-400 px-2 py-1 bg-slate-950/40 rounded border border-slate-800/60 font-mono text-[11px]">
-          <Clock className="w-3.5 h-3.5 text-slate-500" />
-          <span>{lastUpdated ? `Sync: ${lastUpdated}` : "Syncing..."}</span>
-        </div>
-
-        {/* Auto Refresh Selector */}
-        <div className="flex items-center bg-slate-950 rounded border border-slate-800 p-0.5 text-[11px]">
+          {/* Assessment Trigger Button */}
           <button
-            onClick={() => onToggleAutoRefresh(autoRefreshInterval === 30 ? 0 : 30)}
-            className={`px-2 py-0.5 rounded transition font-mono ${
-              autoRefreshInterval > 0
-                ? "bg-indigo-950 text-indigo-300 font-semibold"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
-            title="Toggle 30s auto-refresh polling"
+            onClick={onTriggerEngineRun}
+            disabled={isRunningEngine}
+            className="bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 shadow-md shadow-indigo-950 font-mono"
           >
-            {autoRefreshInterval > 0 ? `${autoRefreshInterval}s Auto` : "Paused"}
+            <RefreshCw className={`w-3.5 h-3.5 ${isRunningEngine ? "animate-spin" : ""}`} />
+            {isRunningEngine ? "Assessing..." : "Run Assessment"}
           </button>
-        </div>
 
-        {/* Run Assessment Button */}
-        <button
-          onClick={onTriggerEngineRun}
-          disabled={isRunningEngine}
-          className="bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-50 text-white font-medium px-3 py-1.5 rounded-md transition flex items-center gap-1.5 shadow-sm shadow-indigo-950"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isRunningEngine ? "animate-spin" : ""}`} />
-          <span>{isRunningEngine ? "Evaluating..." : "Run Assessment"}</span>
-        </button>
-
-        {/* Officer Profile Badge */}
-        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-800/80 border border-slate-700 text-slate-200">
-          <UserCheck className="w-3.5 h-3.5 text-indigo-400" />
-          <span className="font-medium text-[11px]">Monitoring Desk</span>
+          {/* Auto Refresh Select */}
+          <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 px-2 py-1.5 rounded-lg text-xs font-mono">
+            <Clock className="w-3.5 h-3.5 text-slate-400" />
+            <select
+              value={autoRefreshInterval}
+              onChange={(e) => onToggleAutoRefresh(Number(e.target.value))}
+              className="bg-transparent text-slate-300 focus:outline-none text-xs cursor-pointer font-mono"
+            >
+              <option value={15} className="bg-slate-900">15s</option>
+              <option value={30} className="bg-slate-900">30s</option>
+              <option value={60} className="bg-slate-900">60s</option>
+              <option value={0} className="bg-slate-900">Paused</option>
+            </select>
+          </div>
         </div>
       </div>
     </header>

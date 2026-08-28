@@ -8,6 +8,7 @@ import {
   RiskAssessmentItem,
   WeatherObservationItem,
   EventTimelineMilestoneItem,
+  ProviderHealthItem,
 } from "@/components/dashboard/types";
 import CommandHeader from "@/components/dashboard/CommandHeader";
 import KPICards from "@/components/dashboard/KPICards";
@@ -16,7 +17,7 @@ import ActiveEventsList from "@/components/dashboard/ActiveEventsList";
 import EventDetailPanel from "@/components/dashboard/EventDetailPanel";
 import LocationInvestigateModal from "@/components/dashboard/LocationInvestigateModal";
 import SimulationPanel from "@/components/dashboard/SimulationPanel";
-import { ShieldCheck, Info } from "lucide-react";
+import { ShieldCheck, Info, Server, Activity, Database, CheckCircle2 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -25,6 +26,8 @@ export default function CommandCenter() {
   const [summary, setSummary] = useState<DashboardSummaryData | null>(null);
   const [locations, setLocations] = useState<LocationMapItem[]>([]);
   const [events, setEvents] = useState<DisasterEventItem[]>([]);
+  const [providers, setProviders] = useState<ProviderHealthItem[]>([]);
+  const [dataMode, setDataMode] = useState<string>("LIVE");
 
   // Selection state
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
@@ -39,6 +42,7 @@ export default function CommandCenter() {
   const [engineOnline, setEngineOnline] = useState<boolean>(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [isRunningEngine, setIsRunningEngine] = useState<boolean>(false);
+  const [isIngesting, setIsIngesting] = useState<boolean>(false);
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
   const [isAcknowledging, setIsAcknowledging] = useState<boolean>(false);
   const [autoRefreshInterval, setAutoRefreshInterval] = useState<number>(30); // 30s auto-refresh
@@ -107,6 +111,14 @@ export default function CommandCenter() {
         setEvents(evData);
       }
 
+      // 4. Fetch System Provider Health
+      const sysRes = await fetch(`${API_URL}/api/v1/system/data-sources`);
+      if (sysRes.ok) {
+        const sysData = await sysRes.json();
+        setProviders(sysData.providers || []);
+        setDataMode(sysData.data_mode || "LIVE");
+      }
+
       // Format sync time
       const now = new Date();
       setLastUpdated(
@@ -121,7 +133,6 @@ export default function CommandCenter() {
         if (prev && mapData.some((l) => l.id === prev)) {
           return prev;
         }
-        // Pick station with highest risk or first location
         if (mapData.length > 0) {
           const highest = [...mapData].sort((a, b) => b.risk_score - a.risk_score)[0];
           return highest.id;
@@ -152,6 +163,44 @@ export default function CommandCenter() {
     const interval = setInterval(refreshDashboardData, autoRefreshInterval * 1000);
     return () => clearInterval(interval);
   }, [autoRefreshInterval, refreshDashboardData]);
+
+  // Toggle Live vs Simulation Data Mode
+  const handleToggleDataMode = async (mode: string) => {
+    try {
+      const res = await fetch(`${API_URL}/api/v1/ingestion/mode`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDataMode(data.current_mode);
+        await refreshDashboardData();
+      }
+    } catch (err) {
+      console.error("Failed to toggle data mode:", err);
+    }
+  };
+
+  // Trigger Batch Live Ingestion across all stations
+  const handleTriggerBatchIngest = async () => {
+    setIsIngesting(true);
+    try {
+      const res = await fetch(`${API_URL}/api/v1/ingestion/batch`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        await refreshDashboardData();
+        if (selectedLocationId) {
+          await loadLocationTelemetry(selectedLocationId);
+        }
+      }
+    } catch (err) {
+      console.error("Batch ingestion error:", err);
+    } finally {
+      setIsIngesting(false);
+    }
+  };
 
   // Trigger manual engine evaluation run
   const handleTriggerEngineRun = async () => {
@@ -192,7 +241,6 @@ export default function CommandCenter() {
         const err = await res.json();
         throw new Error(err.detail || "Simulation execution failed");
       }
-      // Re-fetch all data and select the simulated station
       setSelectedLocationId(locId);
       await refreshDashboardData();
       await loadLocationTelemetry(locId);
@@ -240,7 +288,6 @@ export default function CommandCenter() {
     }
   };
 
-  // Currently active selected objects
   const activeSelectedLocation = locations.find((l) => l.id === selectedLocationId) || null;
   const activeSelectedEvent =
     events.find((e) => e.id === selectedEventId) ||
@@ -249,13 +296,17 @@ export default function CommandCenter() {
 
   return (
     <div className="min-h-screen bg-[#06090e] text-slate-100 flex flex-col font-sans">
-      {/* 1. Header */}
+      {/* 1. Header with Mode Switcher & Ingest */}
       <CommandHeader
         engineOnline={engineOnline}
         lastUpdated={lastUpdated}
-        dataSourcesStatus={summary?.data_sources_status || "OPERATIONAL (SIMULATED)"}
+        dataSourcesStatus={summary?.data_sources_status || "OPEN-METEO LIVE / NER STATIONS"}
+        dataMode={dataMode}
+        onToggleDataMode={handleToggleDataMode}
         onTriggerEngineRun={handleTriggerEngineRun}
+        onTriggerBatchIngest={handleTriggerBatchIngest}
         isRunningEngine={isRunningEngine}
+        isIngesting={isIngesting}
         autoRefreshInterval={autoRefreshInterval}
         onToggleAutoRefresh={(sec) => setAutoRefreshInterval(sec)}
       />
@@ -272,6 +323,40 @@ export default function CommandCenter() {
           highestRiskScore={summary?.highest_risk_score ?? 0.0}
           highestRiskLevel={summary?.highest_risk_level ?? "LOW"}
         />
+
+        {/* Data Sources & Ingestion Health Strip */}
+        <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+          <div className="flex items-center gap-2 text-slate-400">
+            <Server className="w-4 h-4 text-indigo-400" />
+            <span className="font-bold uppercase text-slate-300">Data Sources &amp; Providers:</span>
+          </div>
+
+          <div className="flex items-center gap-4 flex-wrap">
+            {providers.map((p) => (
+              <div key={p.name} className="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    p.status === "HEALTHY"
+                      ? "bg-emerald-400"
+                      : p.status === "SIMULATED"
+                      ? "bg-amber-400"
+                      : "bg-red-400"
+                  }`}
+                />
+                <span className="text-slate-300 font-medium capitalize">{p.name}:</span>
+                <span className="text-slate-400">{p.status}</span>
+                {p.last_latency_ms && (
+                  <span className="text-[10px] text-slate-500">({p.last_latency_ms.toFixed(0)}ms)</span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="text-[11px] text-slate-500 flex items-center gap-1">
+            <Database className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Cache: In-Memory TTL (600s)</span>
+          </div>
+        </div>
 
         {/* Core Tactical Grid: Map & Details on Left, Event Queue & Simulation on Right */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
@@ -333,7 +418,7 @@ export default function CommandCenter() {
             <div className="p-3 bg-slate-950/80 border border-slate-800/80 rounded-xl text-[11px] text-slate-400 leading-relaxed flex items-start gap-2.5">
               <Info className="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5" />
               <div>
-                <strong className="text-slate-300">Operational Notice:</strong> This platform is an analytical decision-support prototype evaluating multi-source telemetry against physical &amp; statistical risk models. Output scores provide situational hazard assessment and do not supersede official state authority disaster bulletins.
+                <strong className="text-slate-300">Operational Notice:</strong> The platform is currently operating in <strong className="text-indigo-300">{dataMode}</strong> mode. Real meteorological observations from public APIs are evaluated against an analytical prototype landslide-risk assessment pipeline. Output scores provide situational hazard assessment and do not supersede official state authority disaster bulletins.
               </div>
             </div>
           </div>
@@ -349,7 +434,7 @@ export default function CommandCenter() {
 
       {/* 4. Footer */}
       <footer className="border-t border-slate-900 px-5 py-2.5 text-center text-[11px] text-slate-600 font-mono">
-        SIH 2026 Problem Statement SIH26001 | Central Disaster Intelligence Command Center | NER Landslide Risk Engine
+        SIH 2026 Problem Statement SIH26001 | Central Disaster Intelligence Command Center | Open-Meteo &amp; NER Ground Sensors
       </footer>
     </div>
   );
