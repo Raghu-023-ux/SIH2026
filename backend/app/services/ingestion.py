@@ -138,7 +138,7 @@ class MockWeatherDataSource(DataSource):
                 rain_24h = 105.0 + rng.uniform(-4.0, 8.0)
                 soil_moisture = min(99.5, 91.0 + (progress * 6.0) + rng.uniform(-0.5, 0.5))
 
-            elif scenario in ("landslide_risk_increasing", "critical"):
+            elif scenario in ("landslide_risk_increasing", "landslide_buildup", "critical"):
                 # Extreme compounding catastrophe: rain + saturation + pressure drop
                 temp = base_temp - 6.0 - (progress * 3.0)
                 humidity = 99.0
