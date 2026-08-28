@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "SIH26001 - Disaster Intelligence Engine (NER Landslide)"
-    VERSION: str = "0.2.0"
+    VERSION: str = "0.3.0"
     ENGINE_VERSION: str = "prototype-v0.2"
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: str = "development"
@@ -14,6 +14,20 @@ class Settings(BaseSettings):
     # Database: defaults to SQLite for local runs; overridden by PostgreSQL URL in production/docker
     DATABASE_URL: str = "sqlite+aiosqlite:///./sih_disaster.db"
     REDIS_URL: str = "redis://localhost:6379/0"
+
+    # Ingestion & Data Mode: "LIVE" (Open-Meteo with fallback) or "SIMULATION" (deterministic scenarios)
+    DATA_MODE: str = "LIVE"
+
+    # External Provider Configuration (Open-Meteo - Free Public API)
+    OPEN_METEO_API_URL: str = "https://api.open-meteo.com/v1/forecast"
+    WEATHER_REQUEST_TIMEOUT_SECONDS: float = 7.0
+    WEATHER_MAX_RETRIES: int = 2
+    WEATHER_BACKOFF_FACTOR: float = 0.5
+    WEATHER_CACHE_TTL_SECONDS: int = 600  # 10 minutes cache
+
+    # Data Freshness Thresholds (Minutes)
+    DATA_FRESHNESS_WEATHER_MINUTES: int = 60
+    DATA_FRESHNESS_SOIL_MOISTURE_MINUTES: int = 180
 
     # CORS origins
     BACKEND_CORS_ORIGINS: List[str] = [
@@ -33,7 +47,6 @@ class Settings(BaseSettings):
         raise ValueError(v)
 
     # --- Landslide Risk Factor Weights (Centralized & Normalized 0-1) ---
-    # Note: These represent prototype analytical weights and can be replaced with an ML model
     RISK_WEIGHTS: Dict[str, float] = {
         "rainfall_intensity": 0.20,
         "rainfall_anomaly": 0.15,
