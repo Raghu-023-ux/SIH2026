@@ -71,5 +71,11 @@ async def health_check():
     }
 
 
+from backend.app.api.v1.endpoints.health_ready import router as health_ready_router
+
+# Include Health Probes & Prometheus Metrics
+app.include_router(health_ready_router, prefix="/health", tags=["Health & Readiness"])
+app.include_router(health_ready_router, prefix="", tags=["Metrics"])
+
 # Include API v1 routes
 app.include_router(api_router, prefix=settings.API_V1_STR)
