@@ -3,5 +3,13 @@ from backend.app.models.weather import WeatherObservation
 from backend.app.models.risk import RiskAssessment
 from backend.app.models.event import DisasterEvent
 from backend.app.models.history import RiskAssessmentHistory
+from backend.app.models.audit import AIAuditLog
 
-__all__ = ["Location", "WeatherObservation", "RiskAssessment", "DisasterEvent", "RiskAssessmentHistory"]
+__all__ = [
+    "Location",
+    "WeatherObservation",
+    "RiskAssessment",
+    "DisasterEvent",
+    "RiskAssessmentHistory",
+    "AIAuditLog",
+]

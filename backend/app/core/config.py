@@ -1,4 +1,4 @@
-from typing import List, Union, Dict
+from typing import List, Union, Dict, Optional
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -28,6 +28,14 @@ class Settings(BaseSettings):
     # Data Freshness Thresholds (Minutes)
     DATA_FRESHNESS_WEATHER_MINUTES: int = 60
     DATA_FRESHNESS_SOIL_MOISTURE_MINUTES: int = 180
+
+    # --- Agentic AI Layer Configuration ---
+    LLM_PROVIDER: str = "mock"  # "mock", "openai", "gemini"
+    LLM_MODEL: str = "gemini-1.5-flash"
+    LLM_API_KEY: Optional[str] = None
+    AI_MODE: str = "MOCK"  # "MOCK" or "LIVE"
+    AGENT_MAX_STEPS: int = 6
+    AGENT_TIMEOUT_SECONDS: float = 20.0
 
     # CORS origins
     BACKEND_CORS_ORIGINS: List[str] = [
