@@ -176,3 +176,204 @@ export interface LocationInvestigationData {
   risk_history: RiskAssessmentItem[];
   event_timeline: EventTimelineMilestoneItem[];
 }
+
+export interface ShortDurationItem {
+  period: string;
+  hours: number;
+  rainfall_mm: number | null;
+  has_data: boolean;
+  status_label: string;
+}
+
+export interface IDCurvePoint {
+  duration_hours: number;
+  threshold_rainfall_mm: number;
+  critical_intensity_mm_h: number;
+}
+
+export interface SoilDepthLayer {
+  depth_range: string;
+  depth_label: string;
+  moisture_pct: number;
+  volumetric_m3_m3: number;
+  relative_wetness: string;
+  bar_fill_pct: number;
+}
+
+export interface TimelineSeriesItem {
+  timestamp: string;
+  timestamp_str: string;
+  is_observed: boolean;
+  rainfall_rate_mm_h: number;
+  rainfall_24h_mm: number;
+  soil_moisture_pct: number;
+  risk_score: number;
+  confidence_score: number;
+  event_marker?: string | null;
+}
+
+export interface AssessmentDriver {
+  factor_name: string;
+  level: string;
+  contribution_points: number;
+  measured_value_str: string;
+  driver_type: string;
+}
+
+export interface DataProvenance {
+  signal_name: string;
+  source_provider: string;
+  observation_time: string;
+  retrieval_time: string;
+  freshness_status: string;
+  data_category: string;
+}
+
+export interface ScientificInvestigationData {
+  station: {
+    id: string;
+    name: string;
+    district: string;
+    state: string;
+    latitude: number;
+    longitude: number;
+    elevation_m: number;
+    slope_angle_deg: number;
+    susceptibility_score: number;
+  };
+  current_assessment: {
+    risk_score: number;
+    risk_level: string;
+    confidence_score: number;
+    confidence_pct: number;
+    timestamp: string;
+    active_event: boolean;
+    event_id?: string | null;
+    event_severity?: string | null;
+    event_status?: string | null;
+    summary_text: string;
+    disclaimer: string;
+  };
+  risk_trajectory: {
+    current_risk_score: number;
+    current_risk_level: string;
+    score_6h_ago: number;
+    level_6h_ago: string;
+    delta_6h: number;
+    direction: string;
+    rate_of_change_points_per_hour: number;
+    acceleration_label: string;
+    explanation: string;
+  };
+  rainfall: {
+    intensity: {
+      current_intensity_mm_h: number;
+      intensity_6h_avg_mm_h: number;
+      classification: string;
+      explanation: string;
+    };
+    short_duration_table: ShortDurationItem[];
+    persistence: {
+      current_wet_spell_hours: number;
+      wet_hours_last_12h: number;
+      wet_hours_last_24h: number;
+      longest_continuous_wet_hours: number;
+      persistence_level: string;
+      persistence_ratio_24h: number;
+      explanation: string;
+    };
+    antecedent: {
+      antecedent_24h_mm: number | null;
+      antecedent_48h_mm: number | null;
+      antecedent_72h_mm: number | null;
+      antecedent_7d_mm: number | null;
+      loading_classification: string;
+      label: string;
+      explanation: string;
+    };
+    anomaly: {
+      current_24h_mm: number;
+      baseline_24h_mm: number;
+      deviation_mm: number;
+      z_score: number;
+      anomaly_status: string;
+      baseline_source: string;
+      explanation: string;
+    };
+    intensity_duration: {
+      active_duration_hours: number;
+      cumulative_rainfall_mm: number;
+      average_intensity_mm_h: number;
+      max_hourly_intensity_mm_h: number;
+      prototype_threshold_rainfall_mm: number;
+      is_above_prototype_threshold: boolean;
+      threshold_margin_mm: number;
+      reference_curve: IDCurvePoint[];
+      status_text: string;
+      disclaimer: string;
+    };
+  };
+  soil_moisture: {
+    current_composite_pct: number;
+    vertical_profile: SoilDepthLayer[];
+    trend: {
+      delta_1h_pct: number;
+      delta_3h_pct: number;
+      delta_6h_pct: number;
+      delta_24h_pct: number;
+      direction: string;
+      trend_rate_pct_per_hour: number;
+      explanation: string;
+    };
+    percentile: {
+      current_moisture_pct: number;
+      historical_percentile: number;
+      status_label: string;
+      reference_source: string;
+      explanation: string;
+    };
+    measurement_type: string;
+    disclaimer: string;
+  };
+  hydrometeorological_state: {
+    rainfall_intensity_level: string;
+    rainfall_persistence_level: string;
+    accumulation_24h_level: string;
+    antecedent_wetness_level: string;
+    soil_moisture_level: string;
+    moisture_trend_level: string;
+    elevated_signals_count: number;
+    total_signals_count: number;
+    signal_agreement_label: string;
+    synthesis_summary: string;
+  };
+  terrain: {
+    elevation_m: number;
+    slope_angle_deg: number;
+    slope_classification: string;
+    terrain_susceptibility_score: number;
+    historical_susceptibility_rating: string;
+    terrain_source: string;
+    geotechnical_notes: string;
+  };
+  timeline_series: TimelineSeriesItem[];
+  forecast: {
+    expected_rainfall_24h_mm: number;
+    expected_wet_hours_24h: number;
+    expected_max_hourly_mm: number;
+    expected_moisture_trend: string;
+    projected_risk_trajectory: string;
+    forecast_period_label: string;
+    provenance_note: string;
+  };
+  assessment_drivers: AssessmentDriver[];
+  evidence_summary: {
+    supporting_elevated_risk: string[];
+    limiting_uncertain_factors: string[];
+    missing_sensor_observations: string[];
+  };
+  provenance: DataProvenance[];
+  generated_at: string;
+  data_mode: string;
+}
+
