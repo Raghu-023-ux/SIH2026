@@ -19,6 +19,8 @@ import LocationInvestigateModal from "@/components/dashboard/LocationInvestigate
 import SimulationPanel from "@/components/dashboard/SimulationPanel";
 import AIInvestigationPanel from "@/components/dashboard/AIInvestigationPanel";
 import FieldOperationsPanel from "@/components/dashboard/FieldOperationsPanel";
+import BroadcastModal from "@/components/dashboard/BroadcastModal";
+import SitRepModal from "@/components/dashboard/SitRepModal";
 import { ShieldCheck, Info, Server, Activity, Database, CheckCircle2, Radio } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -50,6 +52,8 @@ export default function CommandCenter() {
   const [isAcknowledging, setIsAcknowledging] = useState<boolean>(false);
   const [autoRefreshInterval, setAutoRefreshInterval] = useState<number>(30); // 30s auto-refresh
   const [activeAIQuestion, setActiveAIQuestion] = useState<string | null>(null);
+  const [broadcastTarget, setBroadcastTarget] = useState<{ eventId: string; locationId: string } | null>(null);
+  const [sitrepEventId, setSitrepEventId] = useState<string | null>(null);
 
   // Fetch full location investigation & telemetry details
   const loadLocationTelemetry = useCallback(
@@ -406,6 +410,8 @@ export default function CommandCenter() {
               isAcknowledging={isAcknowledging}
               onOpenInvestigate={(id) => setInvestigateLocationId(id)}
               onAskAI={handleAskAI}
+              onOpenBroadcast={(evId, locId) => setBroadcastTarget({ eventId: evId, locationId: locId })}
+              onOpenSitRep={(evId) => setSitrepEventId(evId)}
             />
 
             {/* Field Operations & Ground Rescue Intelligence Panel */}
@@ -466,7 +472,26 @@ export default function CommandCenter() {
         onClose={() => setInvestigateLocationId(null)}
       />
 
-      {/* 4. Footer */}
+      {/* 4. Multi-Channel Emergency Broadcast Modal */}
+      {broadcastTarget && (
+        <BroadcastModal
+          eventId={broadcastTarget.eventId}
+          locationId={broadcastTarget.locationId}
+          apiUrl={API_URL}
+          onClose={() => setBroadcastTarget(null)}
+        />
+      )}
+
+      {/* 5. Formal NDMA Situation Report Modal */}
+      {sitrepEventId && (
+        <SitRepModal
+          eventId={sitrepEventId}
+          apiUrl={API_URL}
+          onClose={() => setSitrepEventId(null)}
+        />
+      )}
+
+      {/* 6. Footer */}
       <footer className="border-t border-slate-900 px-5 py-2.5 text-center text-[11px] text-slate-600 font-mono">
         SIH 2026 Problem Statement SIH26001 | Central Disaster Intelligence Command Center &amp; Field Rescue Network
       </footer>

@@ -48,6 +48,8 @@ interface EventDetailPanelProps {
   isAcknowledging: boolean;
   onOpenInvestigate: (locationId: string) => void;
   onAskAI?: (question: string, agentType?: string) => void;
+  onOpenBroadcast?: (eventId: string, locationId: string) => void;
+  onOpenSitRep?: (eventId: string) => void;
 }
 
 export default function EventDetailPanel({
@@ -174,6 +176,26 @@ export default function EventDetailPanel({
             >
               <Compass className="w-3.5 h-3.5 text-purple-400" />
               Investigate
+            </button>
+          )}
+
+          {event && onOpenBroadcast && (
+            <button
+              onClick={() => onOpenBroadcast(event.id, location.id)}
+              className="bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-700/60 text-xs px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 font-medium font-mono"
+            >
+              <Radio className="w-3.5 h-3.5 text-amber-400" />
+              Broadcast
+            </button>
+          )}
+
+          {event && onOpenSitRep && (
+            <button
+              onClick={() => onOpenSitRep(event.id)}
+              className="bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-700 text-xs px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 font-medium font-mono"
+            >
+              <FileText className="w-3.5 h-3.5 text-orange-400" />
+              SitRep
             </button>
           )}
 
