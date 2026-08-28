@@ -40,13 +40,12 @@ class MultiChannelAlertService:
         if not loc:
             return None
 
-        # 1. SMS Payload (Strict 160-char constraint)
-        sms_en = f"ALERT: {ev.severity} Landslide Risk in {loc.district}. Move away from steep slopes & blocked roads. Details: sih.gov.in/p/alerts Helplines:112/1070"
-        if len(sms_en) > 160:
-            sms_en = f"ALERT: {ev.severity} Landslide Risk in {loc.district}. Move to safe ground. Helplines:112/1070"
-
-        sms_hi = f"चेतावनी: {loc.district} में भूस्खलन का {ev.severity} खतरा। ढलानों से दूर रहें। हेल्पलाइन: 112/1070"
-        sms_reg = f"সতর্কতা: {loc.district} অঞ্চলত ভূমিস্খলনৰ সতৰ্কবাৰ্তা। সুৰক্ষিত স্থানলৈ যাওক। হেল্পলাইন: ১১২"
+        # 1. Multilingual SMS Payloads
+        from backend.app.services.i18n_alert_templates import i18n_templates
+        trans = i18n_templates.get_sms_translations(loc.district, loc.state, ev.severity)
+        sms_en = trans["en"]
+        sms_hi = trans["hi"]
+        sms_reg = i18n_templates.get_regional_sms(loc.district, loc.state, ev.severity)
 
         sms_payload = SMSPayload(
             character_count=len(sms_en),
