@@ -13,7 +13,10 @@ import {
   CloudLightning,
   CloudDownload,
   Wifi,
+  Users,
+  ExternalLink,
 } from "lucide-react";
+import Link from "next/link";
 
 interface CommandHeaderProps {
   engineOnline: boolean;
@@ -67,6 +70,31 @@ export default function CommandHeader({
           </div>
         </div>
 
+        {/* Center: Multi-Layer Portal Links */}
+        <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs font-mono">
+          <span className="px-2 py-1 bg-slate-900 text-indigo-300 font-bold rounded">
+            HQ Command
+          </span>
+
+          <Link
+            href="/field"
+            target="_blank"
+            className="px-2 py-1 text-slate-400 hover:text-slate-200 hover:bg-slate-900 rounded transition flex items-center gap-1"
+          >
+            <Radio className="w-3 h-3 text-orange-400" />
+            <span>Field Units</span>
+          </Link>
+
+          <Link
+            href="/public"
+            target="_blank"
+            className="px-2 py-1 text-slate-400 hover:text-slate-200 hover:bg-slate-900 rounded transition flex items-center gap-1"
+          >
+            <Shield className="w-3 h-3 text-emerald-400" />
+            <span>Public Safety</span>
+          </Link>
+        </div>
+
         {/* Right: Operational Controls & Mode Selector */}
         <div className="flex items-center gap-2.5 flex-wrap">
           {/* Live vs Simulation Mode Switcher */}
@@ -116,7 +144,7 @@ export default function CommandHeader({
               className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 shadow-sm font-mono"
             >
               <CloudDownload className={`w-3.5 h-3.5 ${isIngesting ? "animate-spin" : ""}`} />
-              {isIngesting ? "Ingesting Open-Meteo..." : "Ingest Live Feeds"}
+              {isIngesting ? "Ingesting..." : "Ingest Feeds"}
             </button>
           )}
 
