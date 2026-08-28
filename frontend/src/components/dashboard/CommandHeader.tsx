@@ -93,6 +93,15 @@ export default function CommandHeader({
             <Shield className="w-3 h-3 text-emerald-400" />
             <span>Public Safety</span>
           </Link>
+
+          <Link
+            href="/analytics"
+            target="_blank"
+            className="px-2 py-1 text-slate-400 hover:text-slate-200 hover:bg-slate-900 rounded transition flex items-center gap-1"
+          >
+            <Sliders className="w-3 h-3 text-purple-400" />
+            <span>Model Studio</span>
+          </Link>
         </div>
 
         {/* Right: Operational Controls & Mode Selector */}
