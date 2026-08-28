@@ -10,6 +10,11 @@ from backend.app.models.field import (
     AssistanceRequest,
     OperationalMessage,
 )
+from backend.app.models.public import (
+    SafetyPoint,
+    PublicUser,
+    PublicAlertAcknowledgment,
+)
 
 __all__ = [
     "Location",
@@ -22,4 +27,7 @@ __all__ = [
     "FieldReport",
     "AssistanceRequest",
     "OperationalMessage",
+    "SafetyPoint",
+    "PublicUser",
+    "PublicAlertAcknowledgment",
 ]
