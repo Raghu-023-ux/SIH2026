@@ -18,7 +18,8 @@ import EventDetailPanel from "@/components/dashboard/EventDetailPanel";
 import LocationInvestigateModal from "@/components/dashboard/LocationInvestigateModal";
 import SimulationPanel from "@/components/dashboard/SimulationPanel";
 import AIInvestigationPanel from "@/components/dashboard/AIInvestigationPanel";
-import { ShieldCheck, Info, Server, Activity, Database, CheckCircle2 } from "lucide-react";
+import FieldOperationsPanel from "@/components/dashboard/FieldOperationsPanel";
+import { ShieldCheck, Info, Server, Activity, Database, CheckCircle2, Radio } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -29,6 +30,7 @@ export default function CommandCenter() {
   const [events, setEvents] = useState<DisasterEventItem[]>([]);
   const [providers, setProviders] = useState<ProviderHealthItem[]>([]);
   const [dataMode, setDataMode] = useState<string>("LIVE");
+  const [fieldSummary, setFieldSummary] = useState<any>(null);
 
   // Selection state
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
@@ -119,6 +121,13 @@ export default function CommandCenter() {
         const sysData = await sysRes.json();
         setProviders(sysData.providers || []);
         setDataMode(sysData.data_mode || "LIVE");
+      }
+
+      // 5. Fetch Field Operations Summary
+      const fieldRes = await fetch(`${API_URL}/api/v1/field/summary`);
+      if (fieldRes.ok) {
+        const fData = await fieldRes.json();
+        setFieldSummary(fData);
       }
 
       // Format sync time
@@ -365,9 +374,9 @@ export default function CommandCenter() {
           </div>
         </div>
 
-        {/* Core Tactical Grid: Map & Details on Left, AI Investigation & Event Queue on Right */}
+        {/* Core Tactical Grid: Map & Details on Left, AI Investigation, Events & Field Operations on Right */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          {/* Left Column: Geographical Risk Map + Factor Details (7 cols) */}
+          {/* Left Column: Geographical Risk Map + Factor Details + Field Ops (7 cols) */}
           <div className="lg:col-span-7 space-y-4">
             {/* GIS Tactical Risk Map */}
             <div className="space-y-1.5">
@@ -397,6 +406,13 @@ export default function CommandCenter() {
               isAcknowledging={isAcknowledging}
               onOpenInvestigate={(id) => setInvestigateLocationId(id)}
               onAskAI={handleAskAI}
+            />
+
+            {/* Field Operations & Ground Rescue Intelligence Panel */}
+            <FieldOperationsPanel
+              summary={fieldSummary}
+              apiUrl={API_URL}
+              onRefresh={refreshDashboardData}
             />
           </div>
 
@@ -436,7 +452,7 @@ export default function CommandCenter() {
             <div className="p-3 bg-slate-950/80 border border-slate-800/80 rounded-xl text-[11px] text-slate-400 leading-relaxed flex items-start gap-2.5">
               <Info className="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5" />
               <div>
-                <strong className="text-slate-300">Operational Notice:</strong> The platform is currently operating in <strong className="text-indigo-300">{dataMode}</strong> mode. AI explanations reflect deterministic interpretations of the scientific engine's mathematical risk assessment and do not supersede official state authority disaster bulletins.
+                <strong className="text-slate-300">Operational Notice:</strong> The platform is currently operating in <strong className="text-indigo-300">{dataMode}</strong> mode. Field reports provide ground-truth context evidence and do not automatically alter the scientific risk assessment model.
               </div>
             </div>
           </div>
@@ -452,7 +468,7 @@ export default function CommandCenter() {
 
       {/* 4. Footer */}
       <footer className="border-t border-slate-900 px-5 py-2.5 text-center text-[11px] text-slate-600 font-mono">
-        SIH 2026 Problem Statement SIH26001 | Central Disaster Intelligence Command Center | Open-Meteo &amp; NER Ground Sensors
+        SIH 2026 Problem Statement SIH26001 | Central Disaster Intelligence Command Center &amp; Field Rescue Network
       </footer>
     </div>
   );
