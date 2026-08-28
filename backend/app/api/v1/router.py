@@ -7,6 +7,8 @@ from backend.app.api.v1.endpoints import (
     events,
     engine,
     simulation,
+    ingestion,
+    system,
 )
 
 api_router = APIRouter()
@@ -18,3 +20,5 @@ api_router.include_router(risk.router, prefix="/risk", tags=["Risk Intelligence"
 api_router.include_router(events.router, prefix="/events", tags=["Disaster Events"])
 api_router.include_router(engine.router, prefix="/engine", tags=["Disaster Engine"])
 api_router.include_router(simulation.router, prefix="/simulation", tags=["Simulation & Scenarios"])
+api_router.include_router(ingestion.router, prefix="/ingestion", tags=["Data Ingestion"])
+api_router.include_router(system.router, prefix="/system", tags=["System & Providers"])
