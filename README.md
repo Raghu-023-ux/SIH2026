@@ -1,6 +1,6 @@
 # SIH26001 — AI-Based Early Warning & Landslide Risk Monitoring System (NER)
 
-> **Disaster Intelligence Command Center & Analytical Engine (MVP v0.2)**
+> **Multi-Signal Disaster Intelligence Engine & Command Center (MVP v0.3 — Engine Version `prototype-v0.2`)**
 >
 > Smart India Hackathon (SIH 2026) | Problem Statement: **SIH26001**
 
@@ -10,177 +10,100 @@
 
 Landslides pose an existential threat across the **North Eastern Region (NER)** of India (Sikkim, Meghalaya, Mizoram, Nagaland, Arunachal Pradesh, Assam, Tripura, Manipur) due to intense precipitation, active tectonic zones, and steep hill slope gradients.
 
-The **Disaster Intelligence Command Center** serves as the central operational interface for disaster monitoring officers:
-1. **Continuous Telemetry Ingestion**: Ingests multi-station meteorological and soil sensor time-series.
-2. **Statistical Anomaly Detection**: Detects rolling Z-score departures in rainfall bursts, soil moisture surge, and pressure drops.
-3. **Temporal Trend Analysis**: Distinguishes isolated heavy rainfall from persistent, compounding precipitation.
-4. **Explainable Risk Attribution**: Calculates 0–100 composite landslide hazard scores with mathematical factor breakdowns.
-5. **Event State Management**: State machine tracking `WATCH` $\rightarrow$ `ELEVATED` $\rightarrow$ `HIGH_RISK` $\rightarrow$ `CRITICAL` $\rightarrow$ `RESOLVED`.
-6. **Tactical GIS Command Interface**: Leaflet-based spatial risk map, sortable event queues, Recharts time-series curves, audit timelines, and live scenario simulation.
+The **Disaster Intelligence Engine** provides an explainable, modular, multi-signal assessment pipeline combining:
+1. **Data Validation & Quality Layer**: Field boundary sanitization, sensor staleness, missing field tracking, quality statuses (`VALID`, `PARTIAL`, `STALE`, `INVALID`), and 72h accumulation curves.
+2. **Normalized Environmental State**: Decoupled intermediate domain representation (`EnvironmentalState`).
+3. **Statistical Anomaly Detection**: Rolling Z-scores on precipitation bursts, soil moisture surge, and barometric drops.
+4. **Temporal Trend & Persistence**: OLS linear slope analysis, multi-interval rainfall persistence, and pore saturation velocity.
+5. **Terrain & Historical Context**: Topographic slope angle, elevation, aspect, and multi-year historical baseline susceptibility.
+6. **Factor Normalization & Centralized Weights**: Standardized $0.0 - 1.0$ factor scoring with centralized configurable weights.
+7. **Signal Agreement & Assessment Confidence**: Multi-signal coherence metric quantifying consistency across atmospheric triggers and subsurface pore saturation.
+8. **Standardized Reason Codes & Trajectory**: Machine-readable reason codes (`HEAVY_RAINFALL`, `RAINFALL_ANOMALY`, `PERSISTENT_RAINFALL`, `SOIL_MOISTURE_ELEVATED`, `MULTI_SIGNAL_AGREEMENT`, etc.) and trajectory tracking (`STABLE`, `INCREASING`, `DECREASING`, `VOLATILE`).
+9. **Debounced Event State Machine with Hysteresis**: Debounced state transitions (`MONITORING`, `WATCH`, `ELEVATED`, `HIGH`, `CRITICAL`, `RESOLVING`, `RESOLVED`) and evolution metrics (`initial_risk`, `peak_risk`, `peak_severity`).
+10. **Audit History Persistence & Versioning**: `RiskAssessmentHistory` persistence and `engine_version="prototype-v0.2"`.
 
 > [!NOTE]
 > **Decision Support Notice**: The analytical risk models, weights, and thresholds in this prototype provide decision support telemetry for simulation and demonstration. They do not constitute official government disaster bulletins.
 
 ---
 
-## 2. System Architecture
+## 2. Multi-Signal Engine Pipeline Architecture
 
 ```text
-                    ENVIRONMENTAL TELEMETRY / SIMULATOR
-                                  │
-                                  ▼
-                    +────────────────────────────+
-                    |    Data Ingestion Layer    |
-                    |  (MockWeatherDataSource)   |
-                    +─────────────┬──────────────+
-                                  │
-                                  ▼
-                    +────────────────────────────+
-                    |     Data Normalization     |
-                    +─────────────┬──────────────+
-                                  │
-                                  ▼
-                    +────────────────────────────+
-                    | Disaster Intelligence Engine|
-                    |  • Anomaly Detector (Z)    |
-                    |  • Trend Analyzer (Slope)  |
-                    |  • Landslide Risk Analyzer |
-                    |  • Event State Machine     |
-                    +─────────────┬──────────────+
-                                  │
-                                  ▼
-                    +────────────────────────────+
-                    | Disaster Event / Risk State |
-                    +─────────────┬──────────────+
-                                  │
-                    +─────────────┴──────────────+
-                    │                            │
-                    ▼                            ▼
-            REST APIs (FastAPI)           Future AI Agents
-                    │
-                    ▼
-          Command Center Interface
-          (Next.js + Leaflet + Recharts)
+                                RAW TELEMETRY
+                                      │
+                                      ▼
+                      ┌────────────────────────────────┐
+                      │ 1. Data Validation & Quality   │
+                      │    (VALID, PARTIAL, STALE)     │
+                      └───────────────┬────────────────┘
+                                      ▼
+                      ┌────────────────────────────────┐
+                      │ 2. Normalized Env State        │
+                      │    (1h, 6h, 24h, 72h, Soil, P) │
+                      └───────────────┬────────────────┘
+                                      ▼
+             ┌────────────────────────┼────────────────────────┐
+             ▼                        ▼                        ▼
+     ┌───────────────┐        ┌───────────────┐        ┌───────────────┐
+     │ 3. Anomaly    │        │ 4. Trend &    │        │ 5. Terrain &  │
+     │    Detection  │        │    Persistence│        │    History    │
+     │    (Z-scores) │        │    (OLS Slope)│        │    Sources    │
+     └───────┬───────┘        └───────┬───────┘        └───────┬───────┘
+             └────────────────────────┼────────────────────────┘
+                                      ▼
+                      ┌────────────────────────────────┐
+                      │ 6. Normalized Factor Scorer    │
+                      │    (0.0 to 1.0 + Central Wts)  │
+                      └───────────────┬────────────────┘
+                                      ▼
+                      ┌────────────────────────────────┐
+                      │ 7. Signal Agreement & Conf.    │
+                      │    (Multi-signal Coherence)    │
+                      └───────────────┬────────────────┘
+                                      ▼
+                      ┌────────────────────────────────┐
+                      │ 8. Reason Code & Trajectory    │
+                      │    (STABLE, INCREASING, etc.)  │
+                      └───────────────┬────────────────┘
+                                      ▼
+                      ┌────────────────────────────────┐
+                      │ 9. Event State Machine         │
+                      │    (Hysteresis & Evolution)    │
+                      └───────────────┬────────────────┘
+                                      ▼
+                      ┌────────────────────────────────┐
+                      │ 10. Audit History Persistence  │
+                      │     (RiskAssessmentHistory)    │
+                      └────────────────────────────────┘
 ```
 
 ---
 
-## 3. Project Structure
+## 3. How to Run and Test
 
-```text
-SIH2026/
-├── backend/
-│   ├── app/
-│   │   ├── api/
-│   │   │   ├── v1/
-│   │   │   │   ├── endpoints/
-│   │   │   │   │   ├── dashboard.py     # KPI summary endpoint
-│   │   │   │   │   ├── locations.py     # Stations, GIS map & investigation
-│   │   │   │   │   ├── weather.py       # Sensor telemetry time-series
-│   │   │   │   │   ├── risk.py          # Risk evaluations & factor breakdown
-│   │   │   │   │   ├── events.py        # Disaster events & audit timelines
-│   │   │   │   │   ├── engine.py        # Pipeline execution trigger
-│   │   │   │   │   └── simulation.py    # Scenario injection
-│   │   │   │   └── router.py
-│   │   │   └── deps.py
-│   │   ├── core/
-│   │   │   ├── config.py
-│   │   │   ├── database.py
-│   │   │   └── logging.py
-│   │   ├── data/
-│   │   │   └── initial_locations.json   # Seed NER monitoring stations
-│   │   ├── engine/
-│   │   │   ├── base.py
-│   │   │   ├── anomaly_detector.py
-│   │   │   ├── trend_analyzer.py
-│   │   │   ├── landslide_risk_analyzer.py
-│   │   │   ├── risk_aggregator.py
-│   │   │   ├── event_manager.py
-│   │   │   └── pipeline.py
-│   │   ├── models/                      # SQLAlchemy ORM Models
-│   │   ├── schemas/                     # Pydantic Schemas
-│   │   ├── services/
-│   │   │   ├── ingestion.py
-│   │   │   ├── location_service.py
-│   │   │   └── simulation_service.py
-│   │   └── main.py
-│   ├── tests/                           # 21 Pytest unit/integration tests
-│   ├── Dockerfile
-│   └── requirements.txt
-│
-├── frontend/
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── layout.tsx
-│   │   │   ├── page.tsx                 # Command Center layout
-│   │   │   └── globals.css
-│   │   └── components/
-│   │       └── dashboard/
-│   │           ├── CommandHeader.tsx    # Header & refresh controls
-│   │           ├── KPICards.tsx         # Active, critical, high-risk counters
-│   │           ├── RiskMap.tsx          # Dynamic SSR-safe Leaflet map
-│   │           ├── RiskMapInner.tsx     # NER GIS risk markers & popups
-│   │           ├── ActiveEventsList.tsx # Sortable/filterable event queue
-│   │           ├── EventDetailPanel.tsx # Factor attribution & "Why active"
-│   │           ├── TrendCharts.tsx      # Recharts rainfall & soil curves
-│   │           ├── EventTimeline.tsx    # Chronological hazard audit log
-│   │           ├── LocationInvestigateModal.tsx # 360° station modal
-│   │           ├── SimulationPanel.tsx  # Scenario injection console
-│   │           └── types.ts             # TypeScript interfaces
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── tailwind.config.js
-│   └── Dockerfile
-│
-├── docs/
-│   └── architecture.md
-├── docker-compose.yml
-├── .env.example
-└── README.md
-```
-
----
-
-## 4. How to Run the Application
-
-### Option A: Local Development
-
-#### 1. Backend Setup
+### 1. Run Complete Automated Test Suite (32 Tests)
 ```bash
-# In project root
-python -m pip install -r backend/requirements.txt
-
-# Run backend test suite (21 tests)
 python -m pytest backend/tests/ -v
+```
 
-# Start backend server (FastAPI at http://localhost:8000)
+### 2. Start Backend API Server
+```bash
 uvicorn backend.app.main:app --reload --port 8000
 ```
-Interactive API docs: `http://localhost:8000/docs`
+Interactive Swagger API documentation: `http://localhost:8000/docs`
 
-#### 2. Frontend Setup
+### 3. Start Frontend Command Center
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-Command Center will be live at `http://localhost:3000`.
+Dashboard: `http://localhost:3000`
 
 ---
 
-### Option B: Docker Compose
-```bash
-docker compose up --build
-```
-Services:
-- **Command Center UI**: `http://localhost:3000`
-- **Backend API**: `http://localhost:8000`
-- **PostgreSQL**: `localhost:5432`
-- **Redis**: `localhost:6379`
-
----
-
-## 5. API Endpoints
+## 4. API Endpoints
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
@@ -188,30 +111,13 @@ Services:
 | `GET` | `/api/v1/dashboard/summary` | Consolidated KPI counters, peak risk, and telemetry health |
 | `GET` | `/api/v1/locations/map` | GIS map stations with current risk score, levels, and weather readings |
 | `GET` | `/api/v1/locations` | List monitored NER stations |
+| `GET` | `/api/v1/locations/{id}/assessment` | Evaluate or fetch latest structured assessment |
+| `GET` | `/api/v1/locations/{id}/assessment/history` | Chronological assessment history for station |
+| `GET` | `/api/v1/locations/{id}/environment` | Sensor observation time-series |
 | `GET` | `/api/v1/locations/{id}/investigate` | 360° investigation package with history, charts & timeline |
-| `GET` | `/api/v1/weather/{location_id}` | Recent meteorological observations time-series |
-| `GET` | `/api/v1/risk/{location_id}` | Latest risk assessment with factor contribution breakdown |
 | `GET` | `/api/v1/events` | List active/past disaster events (`?status=active`) |
 | `GET` | `/api/v1/events/{id}/timeline` | Chronological audit milestones for hazard event |
+| `GET` | `/api/v1/events/{id}/assessments` | Historical assessments linked to event incident |
 | `POST` | `/api/v1/events/{id}/acknowledge` | Mark an event as acknowledged by monitoring officer |
 | `POST` | `/api/v1/engine/run` | Execute engine evaluation on all stations or target station |
-| `POST` | `/api/v1/simulation/scenario` | Inject simulated scenarios (`normal`, `critical`, `recovery`, etc.) |
-
----
-
-## 6. How to Demonstrate the Command Center
-
-1. Open `http://localhost:3000` in your browser.
-2. Observe the North Eastern Region map with green pins (`LOW` risk baseline) and `● ENGINE ONLINE`.
-3. In the **Simulation Console** (bottom right), select **"3. Persistent Rain 48h (High Risk)"** on *Aizawl Chite Valley* $\rightarrow$ Click **Run Scenario Simulation**.
-4. Observe the live update:
-   - Active Events increments to `1 [HIGH_RISK]`.
-   - Map marker turns orange.
-   - **Why This Event Was Detected** reveals factor contributions (`Rainfall Persistence: +15.0 pts`, `Soil Saturation: +16.2 pts`, `Rainfall Anomaly: +14.8 pts`).
-   - Time-series charts display rising rainfall and soil moisture curves.
-5. In the Simulation Console, select **"5. Critical Emergency (>75 Score)"** on *Gangtok Ridge* $\rightarrow$ Click **Run Scenario Simulation**.
-6. Observe the critical escalation:
-   - Critical Alerts increments to `1`, Peak Regional Risk reaches `79.0/100 (CRITICAL)`.
-   - Gangtok map marker pulses red.
-   - Click **Acknowledge Event** $\rightarrow$ Officer acknowledgement badge appears.
-7. Select **"6. Recovery"** in the Simulation Console $\rightarrow$ Risk subsides below 25 and event transitions to `RESOLVED`.
+| `POST` | `/api/v1/simulation/scenario` | Inject multi-signal simulated scenarios (`normal`, `critical`, `recovery`, etc.) |
