@@ -7,12 +7,16 @@ active landslide disaster events, response teams, field reports, safer points, a
 
 import asyncio
 import sys
-from datetime import datetime, timezone
+from pathlib import Path
+
+# Ensure project root is in sys.path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backend.app.core.database import init_db, AsyncSessionLocal
 from backend.app.services.location_service import LocationService
-from backend.app.services.simulation_engine import SimulationEngine
-from backend.app.services.disaster_engine import DisasterIntelligenceEngine
+from backend.app.services.simulation_service import SimulationService
+from backend.app.schemas.simulation import SimulationScenarioRequest
+from backend.app.engine.pipeline import disaster_engine
 from backend.app.services.field_service import field_service
 from backend.app.services.public_safety_service import public_safety_service
 from backend.app.services.disaster_playback_service import disaster_playback_service
@@ -36,8 +40,8 @@ async def run_seed():
 
         # 3. Seed Field Teams & Safer Reference Points
         print("[3/6] Seeding On-Ground Rescue Teams and Safer Assembly Shelters...")
-        await field_service.seed_field_teams(session)
-        await public_safety_service.seed_safety_points(session)
+        await field_service.seed_initial_teams(session)
+        await public_safety_service.seed_initial_safety_points(session)
 
         # 4. Seed Historical Benchmarks & Calibration Runs
         print("[4/6] Seeding Historical Disaster Benchmarks (Lhonak, Haflong, Tupul)...")
@@ -45,13 +49,14 @@ async def run_seed():
 
         # 5. Execute Simulation Scenario
         print("[5/6] Injecting 'heavy_rain' Scenario and Computing Multi-Signal Risk Assessment...")
-        sim_engine = SimulationEngine()
-        await sim_engine.set_scenario(session, "heavy_rain", seed=42)
+        sim_res = await SimulationService.run_scenario(
+            session, SimulationScenarioRequest(scenario="heavy_rain", seed=42)
+        )
+        print(f"      {sim_res.message}")
 
         # 6. Run Disaster Intelligence Engine
-        engine = DisasterIntelligenceEngine()
-        assessments = await engine.run_all(session)
-        print(f"      Calculated multi-signal assessments across {len(assessments)} stations.")
+        pipeline_res = await disaster_engine.run_pipeline(session)
+        print(f"      Calculated multi-signal assessments across {pipeline_res.locations_evaluated} stations.")
 
         await session.commit()
 
