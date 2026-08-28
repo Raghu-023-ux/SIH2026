@@ -53,6 +53,16 @@ class AgentToolRegistry:
         res = await session.execute(stmt)
         obs_list = list(res.scalars().all())
         if not obs_list:
+            # Fallback to evaluate location to ensure observations exist
+            loc_stmt = select(Location).where(Location.id == location_id)
+            loc = (await session.execute(loc_stmt)).scalars().first()
+            if loc:
+                from backend.app.engine.pipeline import disaster_engine
+                await disaster_engine.evaluate_location(session, loc, force_fresh=False)
+                res = await session.execute(stmt)
+                obs_list = list(res.scalars().all())
+
+        if not obs_list:
             return {"error": "No environmental telemetry available."}
 
         latest = obs_list[0]
@@ -84,6 +94,17 @@ class AgentToolRegistry:
         )
         res = await session.execute(stmt)
         latest = res.scalars().first()
+
+        if not latest:
+            # Dynamically run engine evaluation on location so assessment is always available
+            loc_stmt = select(Location).where(Location.id == location_id)
+            loc = (await session.execute(loc_stmt)).scalars().first()
+            if loc:
+                from backend.app.engine.pipeline import disaster_engine
+                await disaster_engine.evaluate_location(session, loc, force_fresh=False)
+                res = await session.execute(stmt)
+                latest = res.scalars().first()
+
         if not latest:
             return {"error": "No scientific risk assessment found for this location."}
 
@@ -123,6 +144,16 @@ class AgentToolRegistry:
         )
         res = await session.execute(stmt)
         records = list(res.scalars().all())
+
+        if not records:
+            # If no history yet, ensure station is evaluated
+            loc_stmt = select(Location).where(Location.id == location_id)
+            loc = (await session.execute(loc_stmt)).scalars().first()
+            if loc:
+                from backend.app.engine.pipeline import disaster_engine
+                await disaster_engine.evaluate_location(session, loc, force_fresh=False)
+                res = await session.execute(stmt)
+                records = list(res.scalars().all())
 
         return {
             "location_id": location_id,
