@@ -11,6 +11,7 @@ from backend.app.api.v1.endpoints import (
     system,
     ai,
     field,
+    public,
 )
 
 api_router = APIRouter()
@@ -26,3 +27,4 @@ api_router.include_router(ingestion.router, prefix="/ingestion", tags=["Data Ing
 api_router.include_router(system.router, prefix="/system", tags=["System & Providers"])
 api_router.include_router(ai.router, prefix="/ai", tags=["Agentic AI Intelligence"])
 api_router.include_router(field.router, prefix="/field", tags=["Field Operations & Rescue"])
+api_router.include_router(public.router, prefix="/public", tags=["Public Disaster Alerts & Safety"])
