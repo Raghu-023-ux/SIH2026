@@ -4,31 +4,60 @@ from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.app.models.event import DisasterEvent
 from backend.app.models.location import Location
-from backend.app.engine.base import AssessmentOutput, RiskLevel, EventStatus
+from backend.app.engine.base import AssessmentOutput, RiskLevel, EventStatus, RiskTrajectory
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
 
 
 class EventManager:
     """
-    Manages the lifecycle, state transitions, and deduplication of DisasterEvent entities.
-    Prevents redundant event creation and tracks worsening, improving, or resolving disaster situations.
+    Manages the lifecycle, debounced state transitions, hysteresis buffers,
+    and evolution metrics (initial_risk, peak_risk, peak_severity, trajectory) of DisasterEvents.
+    Prevents alert flapping caused by single noisy observations.
     """
 
-    def determine_event_status_and_severity(self, risk_score: float) -> Tuple[str, str]:
+    def determine_event_status_and_severity(
+        self,
+        risk_score: float,
+        current_event: Optional[DisasterEvent] = None
+    ) -> Tuple[str, str]:
         """
-        Maps risk score to EventStatus and DisasterEvent severity string.
+        Maps risk score to EventStatus and DisasterEvent severity string
+        with hysteresis buffering against noisy score fluctuations.
         """
-        if risk_score >= settings.THRESHOLD_CRITICAL:  # >= 75
+        buffer = settings.HYSTERESIS_DOWNGRADE_BUFFER  # e.g., 4.0 pts
+
+        # If existing event is in higher state, require buffer crossing before de-escalation
+        if current_event and current_event.status != "RESOLVED":
+            curr_sev = current_event.severity.upper()
+
+            # Hysteresis for CRITICAL -> HIGH
+            if curr_sev == "CRITICAL":
+                if risk_score >= (settings.THRESHOLD_CRITICAL - buffer):  # >= 71.0
+                    return EventStatus.CRITICAL.value, "CRITICAL"
+                elif risk_score >= settings.THRESHOLD_HIGH:
+                    return EventStatus.HIGH.value, "HIGH"
+
+            # Hysteresis for HIGH -> ELEVATED
+            if curr_sev == "HIGH":
+                if risk_score >= (settings.THRESHOLD_HIGH - buffer):  # >= 46.0
+                    return EventStatus.HIGH.value, "HIGH"
+                elif risk_score >= settings.THRESHOLD_ELEVATED:
+                    return EventStatus.ELEVATED.value, "MODERATE"
+
+        # Standard Threshold Mapping
+        if risk_score >= settings.THRESHOLD_CRITICAL:    # >= 75
             return EventStatus.CRITICAL.value, "CRITICAL"
-        elif risk_score >= settings.THRESHOLD_HIGH:     # >= 50
-            return EventStatus.HIGH_RISK.value, "HIGH"
-        elif risk_score >= 40.0:                        # 40 - 49.9
+        elif risk_score >= settings.THRESHOLD_HIGH:       # >= 50
+            return EventStatus.HIGH.value, "HIGH"
+        elif risk_score >= settings.THRESHOLD_ELEVATED:   # >= 40
             return EventStatus.ELEVATED.value, "MODERATE"
-        elif risk_score >= settings.THRESHOLD_MODERATE: # 25 - 39.9
+        elif risk_score >= settings.THRESHOLD_WATCH:      # >= 25
             return EventStatus.WATCH.value, "LOW"
+        elif current_event and current_event.status != "RESOLVED" and risk_score >= (settings.THRESHOLD_WATCH - buffer):
+            return EventStatus.RESOLVING.value, "LOW"
         else:
-            return EventStatus.NORMAL.value, "LOW"
+            return EventStatus.MONITORING.value, "LOW"
 
     async def get_active_event(
         self,
@@ -59,37 +88,53 @@ class EventManager:
         """
         Processes risk assessment against the event lifecycle state machine.
         Returns: (event_instance_or_none, lifecycle_action_string)
-        Actions: 'created', 'escalated', 'deescalated', 'updated', 'resolved', 'none'
+        Actions: 'created', 'escalated', 'deescalated', 'updated', 'resolving', 'resolved', 'none'
         """
         active_event = await self.get_active_event(session, location.id, assessment.hazard_type)
-        new_status, new_severity = self.determine_event_status_and_severity(assessment.risk_score)
+        new_status, new_severity = self.determine_event_status_and_severity(
+            assessment.risk_score,
+            current_event=active_event
+        )
         now = datetime.now(timezone.utc)
 
-        # Case 1: Risk is low (< 25)
-        if new_status == EventStatus.NORMAL.value:
+        # Case 1: Risk is low (< 21 after buffer)
+        if new_status in (EventStatus.MONITORING.value, EventStatus.NORMAL.value):
             if active_event:
-                # Active event has now subsided -> transition to RESOLVED
+                # Active event has fully subsided -> transition to RESOLVED
                 active_event.status = EventStatus.RESOLVED.value
                 active_event.risk_score = assessment.risk_score
                 active_event.confidence_score = assessment.confidence_score
+                active_event.trajectory = assessment.trajectory.value
                 active_event.updated_at = now
                 active_event.summary = (
-                    f"Resolved: Landslide risk at {location.name} returned to safe baseline "
-                    f"(Score: {assessment.risk_score:.1f}, {assessment.risk_level.value})."
+                    f"Resolved: Landslide hazard at {location.name} returned to baseline "
+                    f"(Score: {assessment.risk_score:.1f}, Peak: {active_event.peak_risk:.1f})."
                 )
                 logger.info(f"Resolved DisasterEvent {active_event.id} for location {location.name}")
                 return active_event, "resolved"
             else:
-                # Normal conditions, no active event needed
                 return None, "none"
 
-        # Case 2: Risk is elevated (>= 25) but NO active event currently exists -> Create new event
+        # Case 2: Resolving state (in transition buffer)
+        if new_status == EventStatus.RESOLVING.value and active_event:
+            active_event.status = EventStatus.RESOLVING.value
+            active_event.risk_score = assessment.risk_score
+            active_event.confidence_score = assessment.confidence_score
+            active_event.trajectory = assessment.trajectory.value
+            active_event.updated_at = now
+            active_event.summary = (
+                f"Resolving: Environmental indicators subsiding at {location.name} "
+                f"(Current Risk: {assessment.risk_score:.1f}, Peak: {active_event.peak_risk:.1f})."
+            )
+            return active_event, "resolving"
+
+        # Case 3: Risk elevated (>= 25) but NO active event currently exists -> Create new event
         if not active_event:
             est_peak = now + timedelta(hours=12) if assessment.is_increasing_rain else now + timedelta(hours=6)
             est_start = now if assessment.risk_score >= settings.THRESHOLD_HIGH else now + timedelta(hours=3)
 
             summary = (
-                f"Active {new_status} alert: Potential landslide activity detected at {location.name}, "
+                f"Active {new_status} alert: Emerging landslide activity detected at {location.name}, "
                 f"{location.district}, {location.state}. Risk Score: {assessment.risk_score:.1f}/100. {assessment.reason}"
             )
 
@@ -99,7 +144,11 @@ class EventManager:
                 status=new_status,
                 severity=new_severity,
                 risk_score=assessment.risk_score,
+                initial_risk=assessment.risk_score,
+                peak_risk=assessment.risk_score,
+                peak_severity=new_severity,
                 confidence_score=assessment.confidence_score,
+                trajectory=assessment.trajectory.value,
                 detected_at=now,
                 updated_at=now,
                 expected_start=est_start,
@@ -112,19 +161,26 @@ class EventManager:
             logger.info(f"Created new DisasterEvent {new_event.id} [{new_status}] for location {location.name}")
             return new_event, "created"
 
-        # Case 3: Active event ALREADY exists -> Update existing event state
+        # Case 4: Active event ALREADY exists -> Update evolution metrics
         prev_score = active_event.risk_score
         active_event.updated_at = now
         active_event.risk_score = assessment.risk_score
         active_event.confidence_score = assessment.confidence_score
+        active_event.trajectory = assessment.trajectory.value
 
+        # Update peak risk & peak severity
+        if assessment.risk_score > active_event.peak_risk:
+            active_event.peak_risk = assessment.risk_score
+            active_event.peak_severity = new_severity
+
+        # Determine escalation / de-escalation action
         if assessment.risk_score > prev_score + 3.0:
             action = "escalated"
             active_event.status = new_status
             active_event.severity = new_severity
             active_event.summary = (
                 f"ESCALATED to {new_status}: Landslide hazard increasing at {location.name} "
-                f"(Risk: {prev_score:.1f} -> {assessment.risk_score:.1f}). {assessment.reason}"
+                f"(Risk: {prev_score:.1f} -> {assessment.risk_score:.1f}, Peak: {active_event.peak_risk:.1f}). {assessment.reason}"
             )
             logger.info(f"Escalated DisasterEvent {active_event.id} for {location.name} to {new_status}")
         elif assessment.risk_score < prev_score - 3.0:
@@ -132,8 +188,8 @@ class EventManager:
             active_event.status = new_status
             active_event.severity = new_severity
             active_event.summary = (
-                f"Easing: Landslide hazard decreasing at {location.name} "
-                f"(Risk: {prev_score:.1f} -> {assessment.risk_score:.1f}, Status: {new_status})."
+                f"De-escalated to {new_status}: Landslide hazard decreasing at {location.name} "
+                f"(Risk: {prev_score:.1f} -> {assessment.risk_score:.1f}, Peak: {active_event.peak_risk:.1f})."
             )
             logger.info(f"De-escalated DisasterEvent {active_event.id} for {location.name} to {new_status}")
         else:
@@ -143,3 +199,6 @@ class EventManager:
             logger.debug(f"Updated DisasterEvent {active_event.id} for {location.name}")
 
         return active_event, action
+
+
+event_manager = EventManager()

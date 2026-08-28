@@ -7,13 +7,17 @@ from backend.app.models.location import Location
 from backend.app.models.weather import WeatherObservation
 from backend.app.models.risk import RiskAssessment
 from backend.app.models.event import DisasterEvent
+from backend.app.models.history import RiskAssessmentHistory
 
-from backend.app.engine.base import AssessmentOutput, RiskLevel
+from backend.app.engine.base import AssessmentOutput, RiskLevel, EnvironmentalState
+from backend.app.engine.data_validator import data_validator
 from backend.app.engine.anomaly_detector import AnomalyDetector
 from backend.app.engine.trend_analyzer import TrendAnalyzer
-from backend.app.engine.landslide_risk_analyzer import LandslideRiskAnalyzer
+from backend.app.engine.terrain_source import terrain_data_source
+from backend.app.engine.historical_source import historical_risk_source
+from backend.app.engine.landslide_risk_analyzer import landslide_risk_analyzer
 from backend.app.engine.risk_aggregator import RiskAggregator
-from backend.app.engine.event_manager import EventManager
+from backend.app.engine.event_manager import event_manager
 from backend.app.services.ingestion import mock_data_source
 
 from backend.app.schemas.engine import (
@@ -22,22 +26,28 @@ from backend.app.schemas.engine import (
     EngineAssessmentResponse,
     MultiLocationEngineResponse,
 )
+from backend.app.core.config import settings
 from backend.app.core.logging import logger
 
 
 class DisasterIntelligenceEngine:
     """
-    Main Disaster Intelligence Engine Pipeline Orchestrator.
-    Integrates Data Processing, Anomaly Detection, Trend Analysis,
-    Landslide Risk Modeling, and Disaster Event Lifecycle Management.
+    Upgraded Multi-Signal Disaster Intelligence Pipeline.
+    Orchestrates Data Validation, Environmental Normalization,
+    Statistical Anomaly Detection, Temporal Trend/Persistence Analysis,
+    Terrain Profile Integration, Historical Susceptibility,
+    Factor Scoring, Multi-Signal Agreement, and Event State Machine.
     """
 
     def __init__(self):
+        self.validator = data_validator
         self.anomaly_detector = AnomalyDetector()
         self.trend_analyzer = TrendAnalyzer()
-        self.risk_analyzer = LandslideRiskAnalyzer()
+        self.terrain_source = terrain_data_source
+        self.historical_source = historical_risk_source
+        self.risk_analyzer = landslide_risk_analyzer
         self.risk_aggregator = RiskAggregator()
-        self.event_manager = EventManager()
+        self.event_manager = event_manager
 
     async def get_or_ingest_observations(
         self,
@@ -73,34 +83,54 @@ class DisasterIntelligenceEngine:
         force_fresh: bool = False
     ) -> Tuple[AssessmentOutput, Optional[DisasterEvent], str]:
         """
-        Runs the full assessment pipeline on a single monitored location.
+        Runs the multi-signal assessment pipeline on a monitored location.
         """
-        # 1. Fetch time series observations
+        # 1. Fetch raw observations
         observations = await self.get_or_ingest_observations(session, location.id, force_fresh=force_fresh)
         if not observations:
             raise ValueError(f"No observations available for location {location.id}")
 
-        current_obs = observations[-1]
+        # 2. Stage 1 & 2: Data Validation and Normalization into EnvironmentalState
+        env_states, quality_report = self.validator.validate_series(observations)
+        latest_env = env_states[-1]
         historical_obs = observations[:-1] if len(observations) > 1 else observations
+        latest_raw = observations[-1]
 
-        # 2. Anomaly Detection
-        anomalies = self.anomaly_detector.detect_anomalies(current_obs, historical_obs)
+        # 3. Stage 3: Statistical Anomaly Detection
+        anomalies = self.anomaly_detector.detect_anomalies(latest_raw, historical_obs)
 
-        # 3. Trend Analysis
+        # 4. Stage 4: Temporal Trend & Persistence Analysis
         trends, is_persistent, is_increasing = self.trend_analyzer.analyze_trends(observations)
 
-        # 4. Landslide Risk Calculation
+        # 5. Stage 5: Terrain and Historical Context Retrieval
+        terrain_profile = await self.terrain_source.get_terrain_profile(location)
+        historical_context = await self.historical_source.get_historical_context(location)
+
+        # 6. Fetch recent historical risk assessments for trajectory analysis
+        recent_assess_stmt = (
+            select(RiskAssessment)
+            .where(RiskAssessment.location_id == location.id)
+            .order_by(RiskAssessment.timestamp.asc())
+            .limit(10)
+        )
+        recent_assess_res = await session.execute(recent_assess_stmt)
+        recent_assessments = list(recent_assess_res.scalars().all())
+
+        # 7. Stage 6, 7 & 8: Landslide Risk Calculation, Signal Agreement, Confidence, Reasons, Trajectory
         assessment_output = self.risk_analyzer.assess_risk(
             location=location,
-            current_observation=current_obs,
+            env_state=latest_env,
+            terrain=terrain_profile,
+            historical=historical_context,
             anomalies=anomalies,
             trends=trends,
             is_persistent_rain=is_persistent,
             is_increasing_rain=is_increasing,
-            historical_count=len(observations)
+            recent_assessments=recent_assessments,
+            historical_points_count=len(observations)
         )
 
-        # 5. Persist Risk Assessment Record
+        # 8. Persist Risk Assessment Record
         db_assessment = RiskAssessment(
             location_id=location.id,
             timestamp=assessment_output.timestamp,
@@ -110,16 +140,32 @@ class DisasterIntelligenceEngine:
             confidence_score=assessment_output.confidence_score,
             reason=assessment_output.reason,
             factors=[f.to_dict() for f in assessment_output.factors],
-            assessment_version="v1.0-prototype"
+            assessment_version=settings.ENGINE_VERSION
         )
         session.add(db_assessment)
 
-        # 6. Manage Disaster Event State & Transitions
+        # 9. Stage 9: Process Event Lifecycle State Machine
         event, action = await self.event_manager.process_assessment_event(
             session=session,
             location=location,
             assessment=assessment_output
         )
+
+        # 10. Persist Detailed Assessment History for Auditing & Trend Analysis
+        history_record = RiskAssessmentHistory(
+            event_id=event.id if event else None,
+            location_id=location.id,
+            timestamp=assessment_output.timestamp,
+            risk_score=assessment_output.risk_score,
+            risk_level=assessment_output.risk_level.value,
+            confidence=assessment_output.confidence_score,
+            trajectory=assessment_output.trajectory.value,
+            factors_json=[f.to_dict() for f in assessment_output.factors],
+            reasons_json=[c.value for c in assessment_output.reason_codes],
+            quality_json=assessment_output.data_quality.to_dict(),
+            engine_version=settings.ENGINE_VERSION
+        )
+        session.add(history_record)
 
         await session.flush()
         return assessment_output, event, action
@@ -130,7 +176,7 @@ class DisasterIntelligenceEngine:
         assessment: AssessmentOutput,
         event: Optional[DisasterEvent]
     ) -> EngineAssessmentResponse:
-        """Formats the internal assessment into a clean API response schema."""
+        """Formats internal assessment into a comprehensive API response schema."""
         return EngineAssessmentResponse(
             location_id=location.id,
             location=location.name,
@@ -139,10 +185,15 @@ class DisasterIntelligenceEngine:
             risk_level=assessment.risk_level.value,
             risk_score=assessment.risk_score,
             confidence=assessment.confidence_score,
+            trajectory=assessment.trajectory.value,
             trend=next((t.direction.value for t in assessment.trends if t.metric == "rainfall_1h"), "UNKNOWN"),
             active_event=event is not None and event.status != "RESOLVED",
             event_id=event.id if event else None,
             event_status=event.status if event else None,
+            event_severity=event.severity if event else None,
+            initial_risk=event.initial_risk if event else None,
+            peak_risk=event.peak_risk if event else None,
+            reason_codes=[c.value for c in assessment.reason_codes],
             anomalies=[
                 AnomalyReport(
                     metric=a.metric,
@@ -164,8 +215,17 @@ class DisasterIntelligenceEngine:
                 for t in assessment.trends
             ],
             factors=[f.to_dict() for f in assessment.factors],
+            data_quality=assessment.data_quality.to_dict(),
+            signal_agreement={
+                "agreement_score": assessment.signal_agreement.agreement_score,
+                "coherent_signals_count": assessment.signal_agreement.coherent_signals_count,
+                "conflicting_signals_count": assessment.signal_agreement.conflicting_signals_count,
+                "agreement_level": assessment.signal_agreement.agreement_level,
+                "details": assessment.signal_agreement.details,
+            } if assessment.signal_agreement else None,
             summary=assessment.reason,
-            timestamp=assessment.timestamp
+            timestamp=assessment.timestamp,
+            engine_version=assessment.engine_version
         )
 
     async def run_pipeline(
@@ -195,6 +255,7 @@ class DisasterIntelligenceEngine:
                 active_events_count=0,
                 highest_risk_score=0.0,
                 highest_risk_level="LOW",
+                engine_version=settings.ENGINE_VERSION,
                 assessments=[]
             )
 
@@ -211,7 +272,7 @@ class DisasterIntelligenceEngine:
         active_events = sum(1 for a in assessments_res if a.active_event)
 
         logger.info(
-            f"Engine run completed for {len(locations)} locations. "
+            f"Disaster Engine [{settings.ENGINE_VERSION}] run completed for {len(locations)} stations. "
             f"Highest risk: {agg['highest_risk_score']} ({agg['highest_risk_level']}), Active events: {active_events}"
         )
 
@@ -221,6 +282,7 @@ class DisasterIntelligenceEngine:
             active_events_count=active_events,
             highest_risk_score=agg["highest_risk_score"],
             highest_risk_level=agg["highest_risk_level"],
+            engine_version=settings.ENGINE_VERSION,
             assessments=assessments_res
         )
 

@@ -12,11 +12,16 @@ class DisasterEvent(Base):
     event_type = Column(String(64), nullable=False, default="LANDSLIDE", index=True)
     location_id = Column(String(64), ForeignKey("locations.id", ondelete="CASCADE"), nullable=False, index=True)
 
-    status = Column(String(32), nullable=False, index=True)    # WATCH, ELEVATED, HIGH_RISK, CRITICAL, RESOLVED
+    status = Column(String(32), nullable=False, index=True)    # MONITORING, WATCH, ELEVATED, HIGH, CRITICAL, RESOLVING, RESOLVED
     severity = Column(String(32), nullable=False)              # LOW, MODERATE, HIGH, CRITICAL
 
     risk_score = Column(Float, nullable=False)                 # Current risk score
+    initial_risk = Column(Float, nullable=False, default=0.0)  # Risk score at detection
+    peak_risk = Column(Float, nullable=False, default=0.0)     # Peak risk score recorded
+    peak_severity = Column(String(32), nullable=False, default="LOW")
+
     confidence_score = Column(Float, nullable=False)           # Confidence score (0.0 to 1.0)
+    trajectory = Column(String(32), nullable=False, default="STABLE")  # INCREASING, DECREASING, STABLE, VOLATILE
 
     detected_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
