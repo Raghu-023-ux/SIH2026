@@ -1,0 +1,68 @@
+[
+  {
+    "id": "NER-SIK-GANGTOK-01",
+    "name": "Gangtok Ridge & Slope Monitoring Station",
+    "latitude": 27.3389,
+    "longitude": 88.6065,
+    "district": "East Sikkim",
+    "state": "Sikkim",
+    "elevation": 1650.0,
+    "slope_angle": 38.0,
+    "susceptibility_score": 0.85
+  },
+  {
+    "id": "NER-MEG-SHILLONG-01",
+    "name": "Shillong Peak & Slope Sector",
+    "latitude": 25.5788,
+    "longitude": 91.8933,
+    "district": "East Khasi Hills",
+    "state": "Meghalaya",
+    "elevation": 1525.0,
+    "slope_angle": 32.0,
+    "susceptibility_score": 0.72
+  },
+  {
+    "id": "NER-MIZ-AIZAWL-01",
+    "name": "Aizawl Chite Valley Slope Array",
+    "latitude": 23.7271,
+    "longitude": 92.7176,
+    "district": "Aizawl",
+    "state": "Mizoram",
+    "elevation": 1132.0,
+    "slope_angle": 42.0,
+    "susceptibility_score": 0.88
+  },
+  {
+    "id": "NER-NAG-KOHIMA-01",
+    "name": "Kohima-Dzülake Critical Corridor",
+    "latitude": 25.6751,
+    "longitude": 94.1086,
+    "district": "Kohima",
+    "state": "Nagaland",
+    "elevation": 1444.0,
+    "slope_angle": 36.0,
+    "susceptibility_score": 0.80
+  },
+  {
+    "id": "NER-ARU-ITANAGAR-01",
+    "name": "Itanagar Hills Slope Sensor Node",
+    "latitude": 27.0844,
+    "longitude": 93.6053,
+    "district": "Papum Pare",
+    "state": "Arunachal Pradesh",
+    "elevation": 320.0,
+    "slope_angle": 29.0,
+    "susceptibility_score": 0.65
+  },
+  {
+    "id": "NER-ASM-HAFLONG-01",
+    "name": "Haflong Hill Station - Dima Hasao Corridor",
+    "latitude": 25.1764,
+    "longitude": 93.0185,
+    "district": "Dima Hasao",
+    "state": "Assam",
+    "elevation": 966.0,
+    "slope_angle": 35.0,
+    "susceptibility_score": 0.78
+  }
+]
