@@ -19,6 +19,10 @@ from backend.app.models.alerting import (
     NotificationDispatchLog,
     SituationReport,
 )
+from backend.app.models.analytics import (
+    HistoricalDisasterIncident,
+    ModelEvaluationRun,
+)
 
 __all__ = [
     "Location",
@@ -36,4 +40,6 @@ __all__ = [
     "PublicAlertAcknowledgment",
     "NotificationDispatchLog",
     "SituationReport",
+    "HistoricalDisasterIncident",
+    "ModelEvaluationRun",
 ]
