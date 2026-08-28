@@ -15,6 +15,10 @@ from backend.app.models.public import (
     PublicUser,
     PublicAlertAcknowledgment,
 )
+from backend.app.models.alerting import (
+    NotificationDispatchLog,
+    SituationReport,
+)
 
 __all__ = [
     "Location",
@@ -30,4 +34,6 @@ __all__ = [
     "SafetyPoint",
     "PublicUser",
     "PublicAlertAcknowledgment",
+    "NotificationDispatchLog",
+    "SituationReport",
 ]
