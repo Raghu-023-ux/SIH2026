@@ -8,13 +8,16 @@ from backend.app.models.location import Location
 from backend.app.models.weather import WeatherObservation
 from backend.app.models.risk import RiskAssessment
 from backend.app.models.event import DisasterEvent
+from backend.app.models.history import RiskAssessmentHistory
 from backend.app.schemas.location import LocationResponse
 from backend.app.schemas.weather import WeatherObservationResponse
 from backend.app.schemas.risk import RiskAssessmentResponse
 from backend.app.schemas.event import DisasterEventResponse
+from backend.app.schemas.engine import EngineAssessmentResponse
 from backend.app.schemas.dashboard import LocationMapItem, LocationInvestigationResponse, EventTimelineMilestone
 from backend.app.services.location_service import LocationService
 from backend.app.engine.pipeline import disaster_engine
+from backend.app.engine.data_validator import data_validator
 
 router = APIRouter()
 
@@ -31,14 +34,13 @@ async def list_locations(db: AsyncSession = Depends(get_db)):
 @router.get("/map", response_model=List[LocationMapItem])
 async def get_locations_for_map(db: AsyncSession = Depends(get_db)):
     """
-    Returns all monitored stations enriched with their current risk score,
+    Returns all monitored stations enriched with current risk score,
     latest weather readings, and active disaster events for GIS map rendering.
     """
     locations = await LocationService.get_all_locations(db)
     map_items: List[LocationMapItem] = []
 
     for loc in locations:
-        # Latest risk assessment
         risk_stmt = (
             select(RiskAssessment)
             .where(RiskAssessment.location_id == loc.id)
@@ -48,14 +50,12 @@ async def get_locations_for_map(db: AsyncSession = Depends(get_db)):
         risk_res = await db.execute(risk_stmt)
         latest_risk = risk_res.scalars().first()
 
-        # If location has not been evaluated yet, run evaluation
         if not latest_risk:
             assessment_out, _, _ = await disaster_engine.evaluate_location(db, loc)
             await db.commit()
             risk_res = await db.execute(risk_stmt)
             latest_risk = risk_res.scalars().first()
 
-        # Active event
         event_stmt = (
             select(DisasterEvent)
             .where(and_(DisasterEvent.location_id == loc.id, DisasterEvent.status != "RESOLVED"))
@@ -65,7 +65,6 @@ async def get_locations_for_map(db: AsyncSession = Depends(get_db)):
         event_res = await db.execute(event_stmt)
         active_event = event_res.scalars().first()
 
-        # Latest weather reading
         weather_stmt = (
             select(WeatherObservation)
             .where(WeatherObservation.location_id == loc.id)
@@ -106,7 +105,7 @@ async def get_locations_for_map(db: AsyncSession = Depends(get_db)):
 @router.get("/{location_id}", response_model=LocationResponse)
 async def get_location(location_id: str, db: AsyncSession = Depends(get_db)):
     """
-    Get detailed information for a specific location.
+    Get detailed station metadata.
     """
     location = await LocationService.get_location_by_id(db, location_id)
     if not location:
@@ -117,12 +116,65 @@ async def get_location(location_id: str, db: AsyncSession = Depends(get_db)):
     return location
 
 
+@router.get("/{location_id}/assessment", response_model=EngineAssessmentResponse)
+async def get_location_latest_assessment(location_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    Evaluates or retrieves the latest structured risk assessment for a specific location.
+    """
+    location = await LocationService.get_location_by_id(db, location_id)
+    if not location:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Location with ID '{location_id}' not found."
+        )
+
+    assessment_out, event, _ = await disaster_engine.evaluate_location(db, location)
+    await db.commit()
+    return disaster_engine.format_assessment_response(location, assessment_out, event)
+
+
+@router.get("/{location_id}/assessment/history", response_model=List[RiskAssessmentResponse])
+async def get_location_assessment_history(
+    location_id: str,
+    limit: int = Query(30, ge=1, le=100),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retrieves chronological assessment audit history for a specific station.
+    """
+    stmt = (
+        select(RiskAssessment)
+        .where(RiskAssessment.location_id == location_id)
+        .order_by(RiskAssessment.timestamp.desc())
+        .limit(limit)
+    )
+    res = await db.execute(stmt)
+    return list(res.scalars().all())
+
+
+@router.get("/{location_id}/environment", response_model=List[WeatherObservationResponse])
+async def get_location_environmental_series(
+    location_id: str,
+    limit: int = Query(48, ge=1, le=168),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retrieves validated meteorological and pore water sensor series for a station.
+    """
+    stmt = (
+        select(WeatherObservation)
+        .where(WeatherObservation.location_id == location_id)
+        .order_by(WeatherObservation.timestamp.desc())
+        .limit(limit)
+    )
+    res = await db.execute(stmt)
+    return list(res.scalars().all())
+
+
 @router.get("/{location_id}/investigate", response_model=LocationInvestigationResponse)
 async def investigate_location(location_id: str, db: AsyncSession = Depends(get_db)):
     """
-    360-degree investigation payload for a specific monitoring station:
-    returns station metadata, current risk factors, time-series observations,
-    historical risk scores, active events, and audit timeline milestones.
+    360-degree investigation payload for a specific monitoring station.
     """
     location = await LocationService.get_location_by_id(db, location_id)
     if not location:
@@ -157,7 +209,7 @@ async def investigate_location(location_id: str, db: AsyncSession = Depends(get_
     event_res = await db.execute(event_stmt)
     active_event = event_res.scalars().first()
 
-    # 3. Weather History (past 24 points)
+    # 3. Weather History (past 48 points)
     weather_stmt = (
         select(WeatherObservation)
         .where(WeatherObservation.location_id == location_id)
@@ -167,7 +219,7 @@ async def investigate_location(location_id: str, db: AsyncSession = Depends(get_
     weather_res = await db.execute(weather_stmt)
     weather_history = list(weather_res.scalars().all())
 
-    # 4. Risk History (past 20 assessments)
+    # 4. Risk History (past 30 assessments)
     hist_stmt = (
         select(RiskAssessment)
         .where(RiskAssessment.location_id == location_id)
@@ -185,20 +237,18 @@ async def investigate_location(location_id: str, db: AsyncSession = Depends(get_
             EventTimelineMilestone(
                 timestamp=first_time,
                 time_label=first_time.strftime("%H:%M"),
-                title="Continuous Monitoring Initialized",
-                description=f"Sensors online at {location.name} ({location.elevation:.0f}m elev, {location.slope_angle:.0f}° slope).",
+                title="Continuous Telemetry Ingestion Online",
+                description=f"Sensors active at {location.name} ({location.elevation:.0f}m elev, {location.slope_angle:.0f}° slope).",
                 category="info"
             )
         )
 
-    # Anomaly milestone
     if latest_risk and latest_risk.risk_score >= 25.0:
-        mid_time = latest_risk.timestamp
         milestones.append(
             EventTimelineMilestone(
-                timestamp=mid_time,
-                time_label=mid_time.strftime("%H:%M"),
-                title="Environmental Anomaly Flagged",
+                timestamp=latest_risk.timestamp,
+                time_label=latest_risk.timestamp.strftime("%H:%M"),
+                title="Hazard Anomaly & Saturation Flagged",
                 description=latest_risk.reason,
                 category="anomaly",
                 severity=latest_risk.risk_level
@@ -210,7 +260,7 @@ async def investigate_location(location_id: str, db: AsyncSession = Depends(get_
             EventTimelineMilestone(
                 timestamp=active_event.detected_at,
                 time_label=active_event.detected_at.strftime("%H:%M"),
-                title=f"Disaster Event Created [{active_event.status}]",
+                title=f"Disaster Event Incident Created [{active_event.status}]",
                 description=active_event.summary,
                 category="event",
                 severity=active_event.severity

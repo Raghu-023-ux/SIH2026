@@ -24,9 +24,12 @@ export interface LocationMapItem {
 
 export interface FactorDetail {
   name: string;
-  contribution: number;
   raw_value: any;
-  status: string;
+  normalized_score: number; // 0.0 to 1.0
+  weight: number;           // 0.0 to 1.0
+  contribution: number;     // Points out of 100
+  status: string;           // 'LOW', 'MODERATE', 'HIGH', 'CRITICAL'
+  impact_type?: string;     // 'INCREASE_RISK', 'DECREASE_RISK', 'NEUTRAL'
   description?: string | null;
 }
 
@@ -53,7 +56,11 @@ export interface DisasterEventItem {
   status: string;
   severity: string;
   risk_score: number;
+  initial_risk: number;
+  peak_risk: number;
+  peak_severity: string;
   confidence_score: number;
+  trajectory: string;
   detected_at: string;
   updated_at: string;
   expected_start?: string | null;
@@ -87,8 +94,25 @@ export interface RiskAssessmentItem {
   risk_level: string;
   risk_score: number;
   confidence_score: number;
+  trajectory: string;
   reason: string;
+  reason_codes: string[];
   factors: FactorDetail[];
+  data_quality?: {
+    status: string;
+    completeness_score: number;
+    freshness_score: number;
+    missing_fields: string[];
+    invalid_fields: string[];
+    quality_notes?: string;
+  } | null;
+  signal_agreement?: {
+    agreement_score: number;
+    coherent_signals_count: number;
+    conflicting_signals_count: number;
+    agreement_level: string;
+    details: string;
+  } | null;
   assessment_version: string;
   created_at: string;
 }

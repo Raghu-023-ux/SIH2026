@@ -7,7 +7,9 @@ from backend.app.api.deps import get_db
 from backend.app.models.event import DisasterEvent
 from backend.app.models.location import Location
 from backend.app.models.risk import RiskAssessment
+from backend.app.models.history import RiskAssessmentHistory
 from backend.app.schemas.event import DisasterEventResponse
+from backend.app.schemas.risk import RiskAssessmentResponse
 from backend.app.schemas.dashboard import EventTimelineMilestone
 from backend.app.core.logging import logger
 
@@ -16,7 +18,7 @@ router = APIRouter()
 
 @router.get("", response_model=List[DisasterEventResponse])
 async def list_events(
-    status_filter: Optional[str] = Query(None, alias="status", description="Filter by status: 'active', 'WATCH', 'HIGH_RISK', 'CRITICAL', 'RESOLVED'"),
+    status_filter: Optional[str] = Query(None, alias="status", description="Filter by status: 'active', 'WATCH', 'HIGH', 'CRITICAL', 'RESOLVED'"),
     location_id: Optional[str] = Query(None, description="Filter by location ID"),
     limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db)
@@ -73,59 +75,53 @@ async def get_event_timeline(event_id: str, db: AsyncSession = Depends(get_db)):
             detail=f"Disaster event with ID '{event_id}' not found."
         )
 
-    # Fetch location details
     loc_stmt = select(Location).where(Location.id == event.location_id)
     loc_res = await db.execute(loc_stmt)
     location = loc_res.scalars().first()
 
-    # Reconstruct chronological progression
     milestones: List[EventTimelineMilestone] = []
     base_time = event.detected_at - timedelta(hours=3)
 
-    # Step 1: Baseline monitoring
     milestones.append(
         EventTimelineMilestone(
             timestamp=base_time,
             time_label=base_time.strftime("%H:%M"),
             title="Environmental Baseline Active",
-            description=f"Continuous sensor data telemetry ingested for {location.name if location else 'station'}.",
+            description=f"Continuous sensor telemetry ingested for {location.name if location else 'station'}.",
             category="info"
         )
     )
 
-    # Step 2: Precipitation / pore pressure surge
-    t2 = event.detected_at - timedelta(minutes=45)
+    t2 = event.detected_at - timedelta(minutes=40)
     milestones.append(
         EventTimelineMilestone(
             timestamp=t2,
             time_label=t2.strftime("%H:%M"),
-            title="Rainfall Anomaly & Moisture Saturation Flagged",
-            description="Statistical Z-score exceeded threshold. Pore water saturation rate accelerated.",
+            title="Precipitation Anomaly & Soil Saturation Flagged",
+            description="Statistical Z-score exceeded threshold. Volumetric pore saturation accelerated.",
             category="anomaly",
             severity="MODERATE"
         )
     )
 
-    # Step 3: Event Creation
     milestones.append(
         EventTimelineMilestone(
             timestamp=event.detected_at,
             time_label=event.detected_at.strftime("%H:%M"),
-            title=f"Disaster Event Created: {event.status}",
-            description=f"Landslide risk score reached {event.risk_score:.1f}/100. Severity categorized as {event.severity}.",
+            title=f"Disaster Incident Created: [{event.status}]",
+            description=f"Landslide risk score reached {event.initial_risk:.1f}/100. Severity categorized as {event.severity}.",
             category="event",
             severity=event.severity
         )
     )
 
-    # Step 4: Latest update / resolution
     if event.status == "RESOLVED":
         milestones.append(
             EventTimelineMilestone(
                 timestamp=event.updated_at,
                 time_label=event.updated_at.strftime("%H:%M"),
                 title="Hazard Subsidence & Event Resolved",
-                description=f"Environmental indices subsided to safe baseline (Score: {event.risk_score:.1f}).",
+                description=f"Environmental indices subsided to safe baseline (Score: {event.risk_score:.1f}, Peak: {event.peak_risk:.1f}).",
                 category="resolution"
             )
         )
@@ -134,14 +130,45 @@ async def get_event_timeline(event_id: str, db: AsyncSession = Depends(get_db)):
             EventTimelineMilestone(
                 timestamp=event.updated_at,
                 time_label=event.updated_at.strftime("%H:%M"),
-                title=f"Risk Assessment Updated ({event.status})",
-                description=f"Ongoing monitoring state active. Current risk score: {event.risk_score:.1f}/100.",
+                title=f"Risk Evolution Update [{event.status}]",
+                description=f"Current risk: {event.risk_score:.1f}/100 (Peak: {event.peak_risk:.1f}), Trajectory: {event.trajectory}.",
                 category="escalation",
                 severity=event.severity
             )
         )
 
     return milestones
+
+
+@router.get("/{event_id}/assessments", response_model=List[RiskAssessmentResponse])
+async def get_event_assessments(event_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    Retrieves all risk assessments linked to this specific disaster incident.
+    """
+    stmt = (
+        select(RiskAssessment)
+        .join(RiskAssessmentHistory, RiskAssessmentHistory.timestamp == RiskAssessment.timestamp)
+        .where(RiskAssessmentHistory.event_id == event_id)
+        .order_by(RiskAssessment.timestamp.asc())
+    )
+    result = await db.execute(stmt)
+    assessments = list(result.scalars().all())
+
+    if not assessments:
+        # Fallback: query by location of event
+        ev_res = await db.execute(select(DisasterEvent).where(DisasterEvent.id == event_id))
+        ev = ev_res.scalars().first()
+        if ev:
+            alt_stmt = (
+                select(RiskAssessment)
+                .where(RiskAssessment.location_id == ev.location_id)
+                .order_by(RiskAssessment.timestamp.desc())
+                .limit(20)
+            )
+            alt_res = await db.execute(alt_stmt)
+            assessments = list(alt_res.scalars().all())
+
+    return assessments
 
 
 @router.post("/{event_id}/acknowledge", response_model=DisasterEventResponse)
