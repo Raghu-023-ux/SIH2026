@@ -64,7 +64,7 @@ interface PublicAlertItem {
 }
 
 interface PublicRiskResponse {
-  is_affected: bool;
+  is_affected: boolean;
   public_status: string;
   user_zone: string;
   location_name: string;
