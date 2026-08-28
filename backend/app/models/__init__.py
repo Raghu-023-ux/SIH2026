@@ -4,6 +4,12 @@ from backend.app.models.risk import RiskAssessment
 from backend.app.models.event import DisasterEvent
 from backend.app.models.history import RiskAssessmentHistory
 from backend.app.models.audit import AIAuditLog
+from backend.app.models.field import (
+    FieldTeam,
+    FieldReport,
+    AssistanceRequest,
+    OperationalMessage,
+)
 
 __all__ = [
     "Location",
@@ -12,4 +18,8 @@ __all__ = [
     "DisasterEvent",
     "RiskAssessmentHistory",
     "AIAuditLog",
+    "FieldTeam",
+    "FieldReport",
+    "AssistanceRequest",
+    "OperationalMessage",
 ]
