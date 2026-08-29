@@ -12,6 +12,33 @@ class ShortDurationAccumulationItem(BaseModel):
     status_label: str = "Normal"
 
 
+class MaxShortDurationRainfall(BaseModel):
+    max_1h_mm: float
+    max_3h_mm: float
+    max_6h_mm: float
+    window_hours_evaluated: int
+    peak_timestamp: Optional[datetime] = None
+
+
+class RainfallEventSegmentation(BaseModel):
+    status: str  # DRY_PERIOD, ONGOING_WET_EVENT, RECOVERY_PERIOD
+    event_start_time: Optional[datetime] = None
+    event_peak_time: Optional[datetime] = None
+    peak_intensity_mm_h: float = 0.0
+    active_wet_duration_hours: int = 0
+    antecedent_dry_hours: int = 0
+    explanation: str = "Segments continuous rain events from antecedent dry and recovery periods."
+
+
+class AntecedentWetnessIndexAPI(BaseModel):
+    api_value: float  # API(t) = P(t) + k*P(t-1) + k^2*P(t-2) + ...
+    decay_constant_k: float = 0.85
+    classification: str  # NORMAL, ELEVATED, CRITICAL_SATURATION
+    formula_label: str = "API(t) = sum(k^i * P(t-i))"
+    is_prototype: bool = True
+    disclaimer: str = "Prototype Antecedent Wetness Index. Requires regional geotechnical calibration."
+
+
 class RainfallIntensityMetric(BaseModel):
     current_intensity_mm_h: float
     intensity_6h_avg_mm_h: float
@@ -71,6 +98,9 @@ class IntensityDurationAnalysis(BaseModel):
 class RainfallAnalysisPackage(BaseModel):
     intensity: RainfallIntensityMetric
     short_duration_table: List[ShortDurationAccumulationItem]
+    max_short_duration: MaxShortDurationRainfall
+    event_segmentation: RainfallEventSegmentation
+    antecedent_wetness_index: AntecedentWetnessIndexAPI
     persistence: RainfallPersistenceMetric
     antecedent: AntecedentRainfallMetric
     anomaly: RainfallAnomalyMetric
@@ -105,13 +135,21 @@ class SoilMoisturePercentileMetric(BaseModel):
     explanation: str = "Relative position of current volumetric moisture within the station seasonal re-analysis distribution."
 
 
+class RainfallToSoilResponse(BaseModel):
+    response_detected: bool = True
+    lag_time_hours: float = 2.5
+    correlation_label: str = "POSITIVE_RESPONSE"
+    explanation: str = "Observed temporal relationship between rainfall infiltration and subsurface moisture increase (non-causal prototype metric)."
+
+
 class SoilMoistureAnalysisPackage(BaseModel):
     current_composite_pct: float
     vertical_profile: List[SoilMoistureDepthLayer]
     trend: SoilMoistureTrendMetric
     percentile: SoilMoisturePercentileMetric
+    rainfall_response: RainfallToSoilResponse
     measurement_type: str = "MODEL-DERIVED"
-    disclaimer: str = "Model-derived volumetric soil moisture. In-situ pore pressure sensors not deployed."
+    disclaimer: str = "Model-derived volumetric soil moisture. In-situ piezometers not deployed."
 
 
 # --- Hydro-Meteorological & Terrain Schemas ---
@@ -132,9 +170,15 @@ class TerrainSusceptibilityPackage(BaseModel):
     elevation_m: float
     slope_angle_deg: float
     slope_classification: str
+    aspect_deg: Optional[float] = 135.0
+    aspect_label: str = "SE (South-East)"
     terrain_susceptibility_score: float
     historical_susceptibility_rating: str
-    terrain_source: str = "DEM / simulated terrain"
+    historical_incident_count: int = 12
+    terrain_source: str = "SRTM-30m / DEMO TERRAIN DATA"
+    data_resolution: str = "30m DEM"
+    data_freshness: str = "Static Geotechnical Baseline"
+    is_simulated_terrain: bool = True
     geotechnical_notes: str = "Steep terrain slope angle exacerbates shear stress under heavy hydrologic loading."
 
 
@@ -161,6 +205,41 @@ class ForecastOutlookPackage(BaseModel):
     provenance_note: str = "Open-Meteo GFS/ECMWF Numerical Forecast Model"
 
 
+# --- Trigger vs. Conditioning Factors ---
+class TriggerFactorItem(BaseModel):
+    name: str
+    value: str
+    severity: str  # LOW, MODERATE, HIGH, CRITICAL
+    type: str = "TRIGGER"
+    description: str
+
+
+class ConditioningFactorItem(BaseModel):
+    name: str
+    value: str
+    severity: str  # LOW, MODERATE, HIGH, CRITICAL
+    type: str = "CONDITIONING"
+    description: str
+
+
+# --- Data Completeness & Uncertainty Analysis ---
+class DataCompletenessMatrixItem(BaseModel):
+    parameter: str
+    status: str  # AVAILABLE, PARTIAL, MISSING, STALE, SIMULATED
+    data_source: str
+    last_updated: str
+    note: Optional[str] = None
+
+
+class UncertaintyAnalysis(BaseModel):
+    assessment_confidence_pct: float
+    data_completeness_pct: float
+    data_freshness_pct: float
+    signal_agreement_pct: float
+    summary: str
+    known_missing_inputs: List[str]
+
+
 # --- Provenance, Drivers & Evidence Summary ---
 class DataProvenanceItem(BaseModel):
     signal_name: str
@@ -176,7 +255,7 @@ class AssessmentDriverItem(BaseModel):
     level: str  # Low, Mod, High, Critical
     contribution_points: float
     measured_value_str: str
-    driver_type: str
+    driver_type: str  # TRIGGER, CONDITIONING
 
 
 class RiskTrajectoryAnalysis(BaseModel):
@@ -206,10 +285,31 @@ class ScientificStationInvestigationResponse(BaseModel):
     soil_moisture: SoilMoistureAnalysisPackage
     hydrometeorological_state: HydroMeteorologicalState
     terrain: TerrainSusceptibilityPackage
+    triggers: List[TriggerFactorItem] = Field(default_factory=list)
+    conditioning_factors: List[ConditioningFactorItem] = Field(default_factory=list)
+    uncertainty: UncertaintyAnalysis
+    data_quality_matrix: List[DataCompletenessMatrixItem] = Field(default_factory=list)
     timeline_series: List[TimelineSeriesPoint]
     forecast: ForecastOutlookPackage
     assessment_drivers: List[AssessmentDriverItem]
     evidence_summary: EvidenceSummary
     provenance: List[DataProvenanceItem]
     generated_at: datetime
+    engine_version: str = "prototype-v0.3"
     data_mode: str = "LIVE"
+
+
+# --- Canonical Core Engine Assessment Object ---
+class CanonicalAssessmentObject(BaseModel):
+    location: Dict[str, Any]
+    timestamp: datetime
+    engine_version: str = "prototype-v0.3"
+    environment: Dict[str, Any]
+    indicators: Dict[str, Any]
+    triggers: List[TriggerFactorItem]
+    conditioning_factors: List[ConditioningFactorItem]
+    risk: Dict[str, Any]
+    confidence: Dict[str, Any]
+    uncertainty: UncertaintyAnalysis
+    data_quality: Dict[str, Any]
+    provenance: Dict[str, Any]
