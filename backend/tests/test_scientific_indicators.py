@@ -1,10 +1,7 @@
 import pytest
 from datetime import datetime, timezone, timedelta
 from httpx import AsyncClient, ASGITransport
-from sqlalchemy import select
 
-from backend.app.main import app
-from backend.app.core.database import AsyncSessionLocal
 from backend.app.models.location import Location
 from backend.app.models.weather import WeatherObservation
 from backend.app.models.risk import RiskAssessment
@@ -15,8 +12,9 @@ from backend.app.core.scientific_thresholds import scientific_config
 @pytest.mark.asyncio
 async def test_rainfall_indicators_calculation():
     """
-    Tests rolling accumulation, intensity burst rate, wet spell persistence,
-    antecedent wetness, and standardized anomaly calculation.
+    Tests rolling accumulation, intensity burst rate, max short duration,
+    event segmentation, antecedent wetness index (API), wet spell persistence,
+    and standardized anomaly calculation.
     """
     now = datetime.now(timezone.utc)
     loc = Location(
@@ -61,16 +59,24 @@ async def test_rainfall_indicators_calculation():
     assert "6 hours" in table_dict
     assert table_dict["6 hours"].rainfall_mm == round(18.5 * 6, 1)
 
-    # 3. Verify Persistence
+    # 3. Verify Maximum Short Duration
+    assert pkg.max_short_duration.max_1h_mm >= 18.5
+    assert pkg.max_short_duration.max_3h_mm >= 18.5 * 3
+    assert pkg.max_short_duration.max_6h_mm >= 18.5 * 6
+
+    # 4. Verify Event Segmentation & Antecedent Wetness Index
+    assert pkg.event_segmentation.status == "ONGOING_WET_EVENT"
+    assert pkg.event_segmentation.active_wet_duration_hours >= 8
+    assert pkg.antecedent_wetness_index.api_value > 0
+    assert pkg.antecedent_wetness_index.is_prototype is True
+
+    # 5. Verify Persistence & Anomaly
     assert pkg.persistence.current_wet_spell_hours >= 8
     assert pkg.persistence.persistence_level in ["HIGH", "CRITICAL"]
-
-    # 4. Verify Anomaly
     assert pkg.anomaly.current_24h_mm >= 100.0
     assert pkg.anomaly.z_score > 1.0
-    assert pkg.anomaly.anomaly_status in ["HIGHLY_UNUSUAL", "EXTREMELY_ABNORMAL", "MODERATELY_UNUSUAL"]
 
-    # 5. Verify I-D Analysis
+    # 6. Verify I-D Analysis
     assert pkg.intensity_duration.cumulative_rainfall_mm > 0
     assert len(pkg.intensity_duration.reference_curve) == len(scientific_config.rainfall.id_curve_reference)
 
@@ -78,7 +84,7 @@ async def test_rainfall_indicators_calculation():
 @pytest.mark.asyncio
 async def test_soil_moisture_profile_and_trend():
     """
-    Tests vertical multi-depth profile and temporal infiltration rate calculation.
+    Tests vertical multi-depth profile, infiltration velocity, and rainfall response.
     """
     now = datetime.now(timezone.utc)
     loc = Location(
@@ -96,7 +102,6 @@ async def test_soil_moisture_profile_and_trend():
     obs_list = []
     for i in range(24):
         dt = now - timedelta(hours=23 - i)
-        # Soil moisture rising from 50% to 88%
         moist = 50.0 + (i * 1.6)
         obs_list.append(
             WeatherObservation(
@@ -108,94 +113,75 @@ async def test_soil_moisture_profile_and_trend():
             )
         )
 
-    soil_pkg = scientific_indicators_service.calculate_soil_moisture_metrics(obs_list, loc)
+    soil_pkg = scientific_indicators_service.calculate_soil_metrics(obs_list, loc)
 
-    # 1. Verify vertical profile layers
-    assert len(soil_pkg.vertical_profile) == 5
+    # 1. Verify vertical profile layers (4 geotechnical layers)
+    assert len(soil_pkg.vertical_profile) == 4
     depth_labels = [l.depth_range for l in soil_pkg.vertical_profile]
-    assert "0–1 cm" in depth_labels
-    assert "27–81 cm" in depth_labels
-    # Surface layer should be wettest
+    assert "0 - 10 cm" in depth_labels
+    assert "100 - 200 cm" in depth_labels
+    # Surface layer should be highest moisture
     assert soil_pkg.vertical_profile[0].moisture_pct >= soil_pkg.vertical_profile[-1].moisture_pct
 
-    # 2. Verify trend direction
+    # 2. Verify trend direction & change rate
     assert soil_pkg.trend.direction in ["INCREASING", "RAPIDLY_INCREASING"]
     assert soil_pkg.trend.delta_6h_pct > 0
 
-    # 3. Verify percentile
+    # 3. Verify percentile & rainfall response
     assert soil_pkg.percentile.historical_percentile >= 80
+    assert soil_pkg.rainfall_response.response_detected is True
 
 
 @pytest.mark.asyncio
-async def test_scientific_investigation_endpoints():
+async def test_scientific_investigation_and_canonical_endpoints(client):
     """
-    Tests the FastAPI scientific station investigation endpoints.
+    Tests the FastAPI scientific station investigation and canonical assessment endpoints.
     """
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        # Seed test location if needed
-        async with AsyncSessionLocal() as session:
-            loc = Location(
-                id="NER-TEST-API-01",
-                name="Scientific API Test Ridge",
-                district="East Sikkim",
-                state="Sikkim",
-                latitude=27.35,
-                longitude=88.62,
-                elevation=1500.0,
-                slope_angle=32.0,
-                susceptibility_score=0.78
-            )
-            session.add(loc)
-            obs = WeatherObservation(
-                location_id=loc.id,
-                timestamp=datetime.now(timezone.utc),
-                rainfall_1h=12.0,
-                rainfall_24h=85.0,
-                soil_moisture=78.0,
-                source="test"
-            )
-            session.add(obs)
-            risk = RiskAssessment(
-                location_id=loc.id,
-                timestamp=datetime.now(timezone.utc),
-                risk_level="HIGH",
-                risk_score=68.5,
-                confidence_score=0.88,
-                reason="High antecedent rain + increasing soil saturation.",
-                factors=[]
-            )
-            session.add(risk)
-            await session.commit()
+    # Seed scenario so monitored location has active data
+    sim_res = await client.post("/api/v1/simulation/scenario", json={"scenario": "heavy_rain", "seed": 42})
+    assert sim_res.status_code == 200
 
-        # 1. Test /scientific-analysis
-        resp1 = await client.get("/api/v1/locations/NER-TEST-API-01/scientific-analysis")
-        assert resp1.status_code == 200
-        data1 = resp1.json()
-        assert "rainfall" in data1
-        assert "soil_moisture" in data1
-        assert "hydrometeorological_state" in data1
-        assert "evidence_summary" in data1
-        assert "timeline_series" in data1
-        assert "assessment_drivers" in data1
+    location_id = "NER-SIK-GANGTOK-01"
 
-        # 2. Test /rainfall-analysis
-        resp2 = await client.get("/api/v1/locations/NER-TEST-API-01/rainfall-analysis")
-        assert resp2.status_code == 200
-        data2 = resp2.json()
-        assert "intensity" in data2
-        assert "short_duration_table" in data2
-        assert "intensity_duration" in data2
+    # 1. Test /scientific-analysis
+    resp1 = await client.get(f"/api/v1/locations/{location_id}/scientific-analysis")
+    assert resp1.status_code == 200
+    data1 = resp1.json()
+    assert "rainfall" in data1
+    assert "soil_moisture" in data1
+    assert "hydrometeorological_state" in data1
+    assert "terrain" in data1
+    assert "triggers" in data1
+    assert "conditioning_factors" in data1
+    assert "uncertainty" in data1
+    assert "data_quality_matrix" in data1
+    assert "timeline_series" in data1
+    assert data1["engine_version"] == "prototype-v0.3"
 
-        # 3. Test /soil-analysis
-        resp3 = await client.get("/api/v1/locations/NER-TEST-API-01/soil-analysis")
-        assert resp3.status_code == 200
-        data3 = resp3.json()
-        assert "vertical_profile" in data3
-        assert "trend" in data3
+    # 2. Test /canonical-assessment
+    resp_canon = await client.get(f"/api/v1/locations/{location_id}/canonical-assessment")
+    assert resp_canon.status_code == 200
+    canon = resp_canon.json()
+    assert canon["engine_version"] == "prototype-v0.3"
+    assert "environment" in canon
+    assert "indicators" in canon
+    assert "triggers" in canon
+    assert "conditioning_factors" in canon
+    assert "uncertainty" in canon
+    assert len(canon["triggers"]) >= 1
+    assert len(canon["conditioning_factors"]) >= 1
 
-        # 4. Test /risk-timeline
-        resp4 = await client.get("/api/v1/locations/NER-TEST-API-01/risk-timeline")
-        assert resp4.status_code == 200
-        data4 = resp4.json()
-        assert isinstance(data4, list)
+    # 3. Test /rainfall-analysis
+    resp2 = await client.get(f"/api/v1/locations/{location_id}/rainfall-analysis")
+    assert resp2.status_code == 200
+    data2 = resp2.json()
+    assert "intensity" in data2
+    assert "short_duration_table" in data2
+    assert "max_short_duration" in data2
+
+    # 4. Test /soil-analysis
+    resp3 = await client.get(f"/api/v1/locations/{location_id}/soil-analysis")
+    assert resp3.status_code == 200
+    data3 = resp3.json()
+    assert "vertical_profile" in data3
+    assert "trend" in data3

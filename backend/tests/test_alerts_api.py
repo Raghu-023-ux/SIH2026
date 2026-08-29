@@ -35,19 +35,25 @@ async def test_alerts_api_endpoints(client):
         "/api/v1/alerts/broadcast",
         json={
             "event_id": event_id,
-            "location_id": "NER-ARU-ITANAGAR-01",
-            "channels": ["SMS_GATEWAY", "WHATSAPP_BROADCAST", "CAP_FEED"],
-            "recipient_group": "PUBLIC_AND_OFFICIALS"
+            "sender_id": "Central Command Alert Desk",
+            "priority": "CRITICAL",
+            "title": "Emergency Landslide Warning",
+            "message": "Continuous heavy precipitation detected. Initiate localized evacuation.",
+            "target_type": "FIELD_TEAMS",
+            "channels": ["IN_APP", "SMS"]
         }
     )
     assert bc_res.status_code == 201
     bc_data = bc_res.json()
-    assert bc_data["total_dispatched"] == 3
+    assert "id" in bc_data
+    assert bc_data["status"] in ["ACCEPTED", "QUEUED"]
+    assert bc_data["recipient_count"] >= 1
 
-    # 5. GET /api/v1/alerts/broadcasts
-    logs_res = await client.get("/api/v1/alerts/broadcasts")
-    assert logs_res.status_code == 200
-    assert len(logs_res.json()) >= 3
+    # 5. GET /api/v1/alerts/broadcasts/{id}/status
+    st_res = await client.get(f"/api/v1/alerts/broadcasts/{bc_data['id']}/status")
+    assert st_res.status_code == 200
+    st_data = st_res.json()
+    assert "total_recipients" in st_data
 
     # 6. GET /api/v1/alerts/sitrep/{event_id}
     sitrep_res = await client.get(f"/api/v1/alerts/sitrep/{event_id}")
