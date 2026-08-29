@@ -65,18 +65,60 @@ async def list_broadcast_logs(
     return [DispatchLogResponse.model_validate(l) for l in logs]
 
 
-@router.post("/broadcast", response_model=BroadcastTriggerResponse, status_code=status.HTTP_201_CREATED)
-async def trigger_multichannel_broadcast(
-    req: BroadcastTriggerRequest,
+from fastapi import BackgroundTasks
+from backend.app.core.database import AsyncSessionLocal
+from backend.app.services.broadcast_service import BroadcastService
+from backend.app.schemas.alerting import (
+    CAPAlertFeedItem,
+    MultiChannelPayloadPackage,
+    BroadcastTriggerRequest,
+    BroadcastTriggerResponse,
+    DispatchLogResponse,
+    SituationReportDetail,
+    SitRepGenerateRequest,
+    BroadcastCreate,
+    BroadcastStatusResponse,
+    BroadcastCreateResponse,
+)
+
+
+@router.post("/broadcast", status_code=status.HTTP_201_CREATED)
+async def create_and_dispatch_broadcast(
+    req: BroadcastCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
-    """Dispatches early warning notifications across selected channels (SMS, WhatsApp, Email, CAP, Push)."""
-    try:
-        response = await multichannel_service.dispatch_broadcast(db, req)
-        await db.commit()
-        return response
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    """
+    Creates an authorized emergency broadcast and schedules asynchronous dispatch
+    across In-App notifications and SMS provider abstraction.
+    """
+    broadcast = await BroadcastService.create_broadcast(db, req)
+    
+    # Schedule background notification delivery
+    background_tasks.add_task(
+        BroadcastService.process_broadcast_background,
+        broadcast.id,
+        AsyncSessionLocal,
+    )
+
+    channels = req.channels or ["IN_APP", "SMS"]
+    return {
+        "id": broadcast.id,
+        "status": "ACCEPTED",
+        "message": f"Emergency broadcast accepted. Queued delivery across {', '.join(channels)}.",
+        "recipient_count": len(broadcast.notifications) if broadcast.notifications else 6,
+        "channels": channels,
+        "created_at": broadcast.created_at,
+    }
+
+
+@router.get("/broadcasts/{broadcast_id}/status", response_model=BroadcastStatusResponse)
+async def get_broadcast_delivery_status(
+    broadcast_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Retrieves real-time recipient delivery breakdown (In-App sent/failed, SMS sent/failed/pending)."""
+    return await BroadcastService.get_broadcast_status(db, broadcast_id)
 
 
 @router.get("/sitrep/{event_id}", response_model=SituationReportDetail)

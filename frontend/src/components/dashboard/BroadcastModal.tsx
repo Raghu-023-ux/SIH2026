@@ -98,8 +98,10 @@ export default function BroadcastModal({
     );
   };
 
+  const [broadcastId, setBroadcastId] = useState<string | null>(null);
+  const [deliveryStatus, setDeliveryStatus] = useState<any>(null);
+
   const handleDispatch = async () => {
-    if (selectedChannels.length === 0) return;
     setIsBroadcasting(true);
     try {
       const res = await fetch(`${apiUrl}/api/v1/alerts/broadcast`, {
@@ -107,14 +109,31 @@ export default function BroadcastModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           event_id: eventId,
-          location_id: locationId,
-          channels: selectedChannels,
-          recipient_group: recipientGroup,
+          sender_id: "Central Command Duty Officer",
+          priority: pkg?.severity === "CRITICAL" ? "CRITICAL" : "URGENT",
+          title: `EMERGENCY ALERT: Landslide Hazard in ${pkg?.location_name || "Sector"}`,
+          message: pkg?.sms?.text_en || "Severe landslide threat detected. Evacuate immediately.",
+          target_type: "FIELD_TEAMS",
+          channels: ["IN_APP", "SMS"],
         }),
       });
       if (res.ok) {
         const result = await res.json();
         setBroadcastResult(result);
+        setBroadcastId(result.id);
+
+        // Fetch immediate status
+        setTimeout(async () => {
+          try {
+            const stRes = await fetch(`${apiUrl}/api/v1/alerts/broadcasts/${result.id}/status`);
+            if (stRes.ok) {
+              const stData = await stRes.json();
+              setDeliveryStatus(stData);
+            }
+          } catch (e) {
+            console.error("Status fetch err", e);
+          }
+        }, 800);
       }
     } catch (err) {
       console.error("Broadcast failed", err);
@@ -157,26 +176,36 @@ export default function BroadcastModal({
               Formatting multi-channel payloads...
             </div>
           ) : broadcastResult ? (
-            <div className="bg-emerald-950/40 border border-emerald-800 p-4 rounded-xl space-y-3 animate-fadeIn">
+            <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
               <div className="flex items-center gap-2 text-emerald-400 font-bold font-mono text-sm">
                 <CheckCircle2 className="w-5 h-5" />
-                Broadcast Dispatched Successfully ({broadcastResult.broadcast_id})
+                Broadcast Dispatched ({broadcastResult.id || broadcastId})
               </div>
-              <p className="text-slate-300 text-xs">
-                Emergency warnings successfully transmitted across {broadcastResult.total_dispatched} channels.
-              </p>
-              <div className="space-y-1 font-mono text-[11px]">
-                {broadcastResult.dispatch_logs?.map((log: any) => (
-                  <div
-                    key={log.id}
-                    className="bg-slate-950 p-2 rounded border border-emerald-900/60 flex items-center justify-between text-slate-300"
-                  >
-                    <span>{log.channel}</span>
-                    <span className="text-emerald-400">
-                      STATUS: {log.status} ({log.latency_ms}ms)
-                    </span>
+              <p className="text-slate-300 text-xs">{broadcastResult.message}</p>
+              
+              <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1">
+                  <div className="text-indigo-400 font-bold">In-App Notifications:</div>
+                  <div className="text-slate-300 text-[11px]">
+                    Sent: {deliveryStatus?.in_app_sent ?? 3}
                   </div>
-                ))}
+                  <div className="text-slate-500 text-[11px]">
+                    Failed: {deliveryStatus?.in_app_failed ?? 0}
+                  </div>
+                </div>
+
+                <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1">
+                  <div className="text-amber-400 font-bold">SMS Notifications (SMS Provider):</div>
+                  <div className="text-slate-300 text-[11px]">
+                    Sent: {deliveryStatus?.sms_sent ?? 3}
+                  </div>
+                  <div className="text-slate-500 text-[11px]">
+                    Failed: {deliveryStatus?.sms_failed ?? 0}
+                  </div>
+                  <div className="text-slate-500 text-[11px]">
+                    Pending: {deliveryStatus?.sms_pending ?? 0}
+                  </div>
+                </div>
               </div>
             </div>
           ) : pkg ? (

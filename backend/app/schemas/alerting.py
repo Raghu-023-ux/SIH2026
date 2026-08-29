@@ -157,3 +157,60 @@ class SitRepResponse(BaseModel):
     executive_summary: str
     full_sitrep: SituationReportDetail
     created_at: datetime
+
+
+# --- Core Broadcast & Multi-Provider Notification Pipeline Schemas ---
+class BroadcastCreate(BaseModel):
+    event_id: Optional[str] = None
+    sender_id: Optional[str] = "Central Command Duty Officer"
+    priority: str = Field(default="URGENT", description="ADVISORY, WARNING, URGENT, CRITICAL")
+    title: str = Field(..., max_length=150, description="Broadcast header/title")
+    message: str = Field(..., max_length=1000, description="Emergency alert message body")
+    target_type: str = Field(default="FIELD_TEAMS", description="FIELD_TEAMS, PUBLIC_USERS, EVENT_AREA, CUSTOM_GROUP")
+    target_filter: Optional[Dict[str, Any]] = None
+    channels: Optional[List[str]] = Field(default=["IN_APP", "SMS"], description="Channels: IN_APP, SMS")
+
+
+class NotificationItemResponse(BaseModel):
+    id: str
+    broadcast_id: str
+    recipient_id: str
+    channel: str
+    status: str
+    sent_at: Optional[datetime] = None
+    read_at: Optional[datetime] = None
+    failure_reason: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BroadcastStatusResponse(BaseModel):
+    id: str
+    event_id: Optional[str] = None
+    sender_id: str
+    priority: str
+    title: str
+    message: str
+    target_type: str
+    created_at: datetime
+    total_recipients: int
+    in_app_sent: int
+    in_app_failed: int
+    in_app_pending: int
+    sms_sent: int
+    sms_failed: int
+    sms_pending: int
+    notifications: List[NotificationItemResponse] = Field(default_factory=list)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BroadcastCreateResponse(BaseModel):
+    id: str
+    status: str = "ACCEPTED"
+    message: str
+    recipient_count: int
+    channels: List[str]
+    created_at: datetime
+
