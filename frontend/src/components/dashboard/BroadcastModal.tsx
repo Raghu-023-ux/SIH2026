@@ -9,11 +9,8 @@ import {
   Bell,
   CheckCircle2,
   FileCode,
-  Shield,
-  Clock,
-  Sparkles,
-  Layers,
-  AlertOctagon,
+  AlertTriangle,
+  X,
 } from "lucide-react";
 
 interface MultiChannelPackage {
@@ -24,27 +21,13 @@ interface MultiChannelPackage {
     character_count: number;
     text_en: string;
     text_hi: string;
-    text_regional?: string;
     is_within_160_chars: boolean;
-  };
-  whatsapp: {
-    header: string;
-    body: string;
-    action_url: string;
-    contact_number: string;
-  };
-  email: {
-    subject: string;
-    html_body: string;
-    priority: string;
   };
   push: {
     title: string;
     body: string;
     priority: string;
-    tag: string;
   };
-  cap_identifier: string;
 }
 
 interface BroadcastModalProps {
@@ -62,17 +45,13 @@ export default function BroadcastModal({
 }: BroadcastModalProps) {
   const [pkg, setPkg] = useState<MultiChannelPackage | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [selectedChannels, setSelectedChannels] = useState<string[]>([
-    "CAP_FEED",
-    "SMS_GATEWAY",
-    "WHATSAPP_BROADCAST",
-    "EMAIL_BULLETIN",
-    "IN_APP_PUSH",
-  ]);
-  const [recipientGroup, setRecipientGroup] = useState<string>("PUBLIC_AND_OFFICIALS");
+  const [recipients, setRecipients] = useState<string>("FIELD_TEAMS");
+  const [priority, setPriority] = useState<string>("CRITICAL");
+  const [message, setMessage] = useState<string>("");
+  const [selectedChannels, setSelectedChannels] = useState<string[]>(["IN_APP", "SMS"]);
   const [isBroadcasting, setIsBroadcasting] = useState<boolean>(false);
   const [broadcastResult, setBroadcastResult] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<string>("sms");
+  const [deliveryStatus, setDeliveryStatus] = useState<any>(null);
 
   useEffect(() => {
     async function loadPayloads() {
@@ -82,6 +61,8 @@ export default function BroadcastModal({
         if (res.ok) {
           const data: MultiChannelPackage = await res.json();
           setPkg(data);
+          setMessage(data.sms?.text_en || `EMERGENCY ALERT: Landslide hazard detected at ${data.location_name}. Follow evacuation directives.`);
+          setPriority(data.severity === "CRITICAL" ? "CRITICAL" : "URGENT");
         }
       } catch (err) {
         console.error("Failed to load broadcast payloads", err);
@@ -98,10 +79,8 @@ export default function BroadcastModal({
     );
   };
 
-  const [broadcastId, setBroadcastId] = useState<string | null>(null);
-  const [deliveryStatus, setDeliveryStatus] = useState<any>(null);
-
   const handleDispatch = async () => {
+    if (!message.trim()) return;
     setIsBroadcasting(true);
     try {
       const res = await fetch(`${apiUrl}/api/v1/alerts/broadcast`, {
@@ -110,17 +89,16 @@ export default function BroadcastModal({
         body: JSON.stringify({
           event_id: eventId,
           sender_id: "Central Command Duty Officer",
-          priority: pkg?.severity === "CRITICAL" ? "CRITICAL" : "URGENT",
-          title: `EMERGENCY ALERT: Landslide Hazard in ${pkg?.location_name || "Sector"}`,
-          message: pkg?.sms?.text_en || "Severe landslide threat detected. Evacuate immediately.",
-          target_type: "FIELD_TEAMS",
-          channels: ["IN_APP", "SMS"],
+          priority: priority,
+          title: `EMERGENCY ALERT: Sector Hazard [${pkg?.location_name || locationId}]`,
+          message: message,
+          target_type: recipients,
+          channels: selectedChannels,
         }),
       });
       if (res.ok) {
         const result = await res.json();
         setBroadcastResult(result);
-        setBroadcastId(result.id);
 
         // Fetch immediate status
         setTimeout(async () => {
@@ -143,85 +121,104 @@ export default function BroadcastModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-3 sm:p-5 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] font-sans">
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-3 sm:p-5">
+      <div className="bg-slate-900 border border-slate-800 rounded-md w-full max-w-xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh] font-sans text-slate-100">
         {/* Header */}
         <div className="bg-slate-950 px-5 py-3.5 border-b border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
-              <Radio className="w-4 h-4 animate-pulse" />
-            </div>
+          <div className="flex items-center gap-2">
+            <Radio className="w-4 h-4 text-amber-400" />
             <div>
-              <h2 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+              <h2 className="text-sm font-bold text-slate-100 font-mono">
                 Multi-Channel Emergency Alert Dispatcher
               </h2>
               <p className="text-[11px] text-slate-400 font-mono">
-                {pkg?.location_name} • Severity: {pkg?.severity}
+                Target Sector: <span className="text-slate-200">{pkg?.location_name || locationId}</span>
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-200 text-xs font-mono px-2 py-1 bg-slate-900 rounded border border-slate-800"
+            className="text-slate-400 hover:text-slate-200 p-1 rounded hover:bg-slate-800 transition"
           >
-            ✕ Close
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 text-xs font-sans">
+        <div className="p-5 space-y-4 overflow-y-auto flex-1 text-xs font-sans">
           {loading ? (
             <div className="py-12 text-center text-slate-500 font-mono">
-              Formatting multi-channel payloads...
+              Loading broadcast templates...
             </div>
           ) : broadcastResult ? (
-            <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
-              <div className="flex items-center gap-2 text-emerald-400 font-bold font-mono text-sm">
-                <CheckCircle2 className="w-5 h-5" />
-                Broadcast Dispatched ({broadcastResult.id || broadcastId})
+            <div className="bg-slate-950 p-4 rounded-md border border-slate-800 space-y-3 font-mono">
+              <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+                <CheckCircle2 className="w-4 h-4" />
+                Broadcast Dispatched ({broadcastResult.id})
               </div>
-              <p className="text-slate-300 text-xs">{broadcastResult.message}</p>
-              
-              <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-                <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1">
-                  <div className="text-indigo-400 font-bold">In-App Notifications:</div>
-                  <div className="text-slate-300 text-[11px]">
-                    Sent: {deliveryStatus?.in_app_sent ?? 3}
-                  </div>
-                  <div className="text-slate-500 text-[11px]">
-                    Failed: {deliveryStatus?.in_app_failed ?? 0}
+              <p className="text-slate-300 text-xs font-sans">{broadcastResult.message}</p>
+
+              <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-800">
+                <div className="bg-slate-900 p-2.5 rounded border border-slate-800 space-y-1">
+                  <div className="text-slate-300 font-bold">In-App Notifications:</div>
+                  <div className="text-slate-400 text-[11px]">
+                    Delivered: {deliveryStatus?.in_app_sent ?? 3} | Failed: {deliveryStatus?.in_app_failed ?? 0}
                   </div>
                 </div>
 
-                <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1">
-                  <div className="text-amber-400 font-bold">SMS Notifications (SMS Provider):</div>
-                  <div className="text-slate-300 text-[11px]">
-                    Sent: {deliveryStatus?.sms_sent ?? 3}
-                  </div>
-                  <div className="text-slate-500 text-[11px]">
-                    Failed: {deliveryStatus?.sms_failed ?? 0}
-                  </div>
-                  <div className="text-slate-500 text-[11px]">
-                    Pending: {deliveryStatus?.sms_pending ?? 0}
+                <div className="bg-slate-900 p-2.5 rounded border border-slate-800 space-y-1">
+                  <div className="text-amber-400 font-bold">SMS (Provider Gateway):</div>
+                  <div className="text-slate-400 text-[11px]">
+                    Sent: {deliveryStatus?.sms_sent ?? 3} | Pending: {deliveryStatus?.sms_pending ?? 0}
                   </div>
                 </div>
               </div>
             </div>
-          ) : pkg ? (
+          ) : (
             <>
-              {/* Channel Selector Chips */}
+              {/* Recipients & Priority */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 font-bold mb-1">
+                    Recipients Group:
+                  </label>
+                  <select
+                    value={recipients}
+                    onChange={(e) => setRecipients(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-slate-600 font-mono"
+                  >
+                    <option value="FIELD_TEAMS">All Active Field Rescue Teams</option>
+                    <option value="PUBLIC_SECTOR">Public Sector Inhabitants</option>
+                    <option value="DISTRICT_MAGISTRATE">District Disaster Control Room</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 font-bold mb-1">
+                    Alert Priority:
+                  </label>
+                  <select
+                    value={priority}
+                    onChange={(e) => setPriority(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-slate-600 font-mono"
+                  >
+                    <option value="CRITICAL">CRITICAL (Immediate Evacuation)</option>
+                    <option value="URGENT">URGENT (Elevated Hazard Warning)</option>
+                    <option value="ADVISORY">ADVISORY (Weather Watch)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Channels Selector */}
               <div>
                 <label className="block text-[10px] font-mono uppercase text-slate-400 font-bold mb-1.5">
-                  Select Target Broadcast Channels:
+                  Delivery Channels:
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 font-mono text-[11px]">
+                <div className="grid grid-cols-2 gap-2 font-mono text-xs">
                   {[
-                    { id: "CAP_FEED", label: "CAP v1.2 Feed", icon: FileCode },
-                    { id: "SMS_GATEWAY", label: "SMS Broadcast", icon: MessageSquare },
-                    { id: "WHATSAPP_BROADCAST", label: "WhatsApp Alert", icon: MessageSquare },
-                    { id: "EMAIL_BULLETIN", label: "Email Bulletin", icon: Mail },
-                    { id: "IN_APP_PUSH", label: "In-App Push", icon: Bell },
+                    { id: "IN_APP", label: "In-App Push (Field App)", icon: Bell },
+                    { id: "SMS", label: "SMS Gateway (Mock/Twilio)", icon: MessageSquare },
                   ].map((ch) => {
                     const active = selectedChannels.includes(ch.id);
                     const Icon = ch.icon;
@@ -230,10 +227,10 @@ export default function BroadcastModal({
                         key={ch.id}
                         type="button"
                         onClick={() => toggleChannel(ch.id)}
-                        className={`p-2 rounded-lg border font-bold flex items-center gap-2 transition ${
+                        className={`p-2 rounded border font-medium flex items-center gap-2 transition ${
                           active
-                            ? "bg-indigo-950/80 border-indigo-600 text-indigo-200"
-                            : "bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200"
+                            ? "bg-slate-800 border-slate-650 text-slate-100 font-bold"
+                            : "bg-slate-950 border-slate-800 text-slate-500 hover:text-slate-300"
                         }`}
                       >
                         <Icon className="w-3.5 h-3.5" />
@@ -244,127 +241,50 @@ export default function BroadcastModal({
                 </div>
               </div>
 
-              {/* Payload Preview Tabs */}
-              <div className="space-y-2 pt-2 border-t border-slate-800">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono uppercase text-slate-400 font-bold">
-                    Payload Previews by Channel:
+              {/* Message Input */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[10px] font-mono uppercase text-slate-400 font-bold">
+                    Directive Message:
+                  </label>
+                  <span className="text-[10px] font-mono text-slate-500">
+                    {message.length} chars
                   </span>
-                  <div className="flex items-center gap-1 font-mono text-[10px]">
-                    {["sms", "whatsapp", "email", "cap"].map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => setActiveTab(t)}
-                        className={`px-2 py-0.5 rounded uppercase font-bold transition ${
-                          activeTab === t
-                            ? "bg-indigo-600 text-white"
-                            : "bg-slate-950 text-slate-400 hover:text-slate-200"
-                        }`}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
                 </div>
-
-                {/* Tab 1: SMS */}
-                {activeTab === "sms" && (
-                  <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
-                    <div className="flex items-center justify-between text-[10px] font-mono">
-                      <span className="text-slate-400">English SMS Template:</span>
-                      <span
-                        className={`font-bold ${
-                          pkg.sms.is_within_160_chars ? "text-emerald-400" : "text-red-400"
-                        }`}
-                      >
-                        {pkg.sms.character_count} / 160 Chars
-                      </span>
-                    </div>
-                    <p className="text-slate-200 bg-slate-900/80 p-2.5 rounded-lg font-mono text-xs border border-slate-800">
-                      {pkg.sms.text_en}
-                    </p>
-
-                    <div className="pt-1 text-[10px] font-mono text-slate-400">Hindi Translation:</div>
-                    <p className="text-slate-300 bg-slate-900/80 p-2 rounded font-sans text-xs border border-slate-800">
-                      {pkg.sms.text_hi}
-                    </p>
-                  </div>
-                )}
-
-                {/* Tab 2: WhatsApp */}
-                {activeTab === "whatsapp" && (
-                  <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
-                    <div className="text-[10px] font-mono text-emerald-400 font-bold">
-                      WhatsApp Formatted Message:
-                    </div>
-                    <pre className="text-slate-200 bg-slate-900/80 p-2.5 rounded-lg font-mono text-[11px] whitespace-pre-wrap leading-relaxed border border-slate-800">
-                      {pkg.whatsapp.body}
-                    </pre>
-                  </div>
-                )}
-
-                {/* Tab 3: Email */}
-                {activeTab === "email" && (
-                  <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
-                    <div className="text-[10px] font-mono text-slate-400">
-                      Subject: <strong className="text-slate-200">{pkg.email.subject}</strong>
-                    </div>
-                    <div
-                      className="text-slate-300 bg-slate-900/80 p-3 rounded-lg text-xs leading-relaxed border border-slate-800"
-                      dangerouslySetInnerHTML={{ __html: pkg.email.html_body }}
-                    />
-                  </div>
-                )}
-
-                {/* Tab 4: CAP v1.2 */}
-                {activeTab === "cap" && (
-                  <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
-                    <div className="text-[10px] font-mono text-indigo-400 font-bold">
-                      CAP v1.2 Identifier: {pkg.cap_identifier}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <a
-                        href={`${apiUrl}/api/v1/alerts/${eventId}/cap.xml`}
-                        target="_blank"
-                        className="text-xs font-mono bg-slate-900 hover:bg-slate-800 px-3 py-1.5 rounded border border-slate-700 text-indigo-300"
-                      >
-                        View Raw CAP XML Feed ↗
-                      </a>
-                    </div>
-                  </div>
-                )}
+                <textarea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  rows={4}
+                  className="w-full bg-slate-950 border border-slate-800 rounded p-2.5 text-xs text-slate-200 focus:outline-none focus:border-slate-600 font-mono"
+                  placeholder="Enter explicit operational warning and evacuation instructions..."
+                />
               </div>
             </>
-          ) : null}
+          )}
         </div>
 
         {/* Footer Actions */}
-        {!broadcastResult && (
-          <div className="bg-slate-950 p-3.5 sm:p-4 border-t border-slate-800 flex items-center justify-between gap-3">
-            <span className="text-[11px] font-mono text-slate-400">
-              {selectedChannels.length} Channels Selected
-            </span>
+        <div className="px-5 py-3 border-t border-slate-800 flex items-center justify-between bg-slate-950 font-mono text-xs">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded border border-slate-800 transition"
+          >
+            {broadcastResult ? "Close" : "Cancel"}
+          </button>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl font-mono text-xs"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDispatch}
-                disabled={isBroadcasting || selectedChannels.length === 0}
-                className="bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-50 text-white px-5 py-2 rounded-xl font-mono font-bold text-xs shadow-lg shadow-indigo-950 flex items-center gap-1.5"
-              >
-                <Radio className="w-3.5 h-3.5" />
-                {isBroadcasting ? "Transmitting..." : "DISPATCH BROADCAST"}
-              </button>
-            </div>
-          </div>
-        )}
+          {!broadcastResult && (
+            <button
+              type="button"
+              onClick={handleDispatch}
+              disabled={isBroadcasting || !message.trim() || selectedChannels.length === 0}
+              className="px-4 py-1.5 bg-amber-600 hover:bg-amber-500 active:bg-amber-700 disabled:opacity-50 text-white rounded font-bold transition flex items-center gap-1.5 shadow-sm"
+            >
+              <Send className={`w-3.5 h-3.5 ${isBroadcasting ? "animate-spin" : ""}`} />
+              {isBroadcasting ? "Broadcasting..." : "Send Broadcast"}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
