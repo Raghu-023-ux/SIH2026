@@ -229,6 +229,39 @@ export interface DataProvenance {
   data_category: string;
 }
 
+export interface TriggerFactor {
+  name: string;
+  value: string;
+  severity: string;
+  type: string;
+  description: string;
+}
+
+export interface ConditioningFactor {
+  name: string;
+  value: string;
+  severity: string;
+  type: string;
+  description: string;
+}
+
+export interface DataQualityMatrixItem {
+  parameter: string;
+  status: string;
+  data_source: string;
+  last_updated: string;
+  note?: string | null;
+}
+
+export interface UncertaintyData {
+  assessment_confidence_pct: number;
+  data_completeness_pct: number;
+  data_freshness_pct: number;
+  signal_agreement_pct: number;
+  summary: string;
+  known_missing_inputs: string[];
+}
+
 export interface ScientificInvestigationData {
   station: {
     id: string;
@@ -273,6 +306,23 @@ export interface ScientificInvestigationData {
       explanation: string;
     };
     short_duration_table: ShortDurationItem[];
+    max_short_duration?: {
+      max_1h_mm: number;
+      max_3h_mm: number;
+      max_6h_mm: number;
+      window_hours_evaluated: number;
+    };
+    event_segmentation?: {
+      status: string;
+      peak_intensity_mm_h: number;
+      active_wet_duration_hours: number;
+      antecedent_dry_hours: number;
+    };
+    antecedent_wetness_index?: {
+      api_value: number;
+      classification: string;
+      formula_label: string;
+    };
     persistence: {
       current_wet_spell_hours: number;
       wet_hours_last_12h: number;
@@ -332,6 +382,11 @@ export interface ScientificInvestigationData {
       reference_source: string;
       explanation: string;
     };
+    rainfall_response?: {
+      response_detected: boolean;
+      lag_time_hours: number;
+      correlation_label: string;
+    };
     measurement_type: string;
     disclaimer: string;
   };
@@ -351,11 +406,20 @@ export interface ScientificInvestigationData {
     elevation_m: number;
     slope_angle_deg: number;
     slope_classification: string;
+    aspect_label?: string;
     terrain_susceptibility_score: number;
     historical_susceptibility_rating: string;
+    historical_incident_count?: number;
     terrain_source: string;
+    data_resolution?: string;
+    data_freshness?: string;
+    is_simulated_terrain?: boolean;
     geotechnical_notes: string;
   };
+  triggers?: TriggerFactor[];
+  conditioning_factors?: ConditioningFactor[];
+  uncertainty?: UncertaintyData;
+  data_quality_matrix?: DataQualityMatrixItem[];
   timeline_series: TimelineSeriesItem[];
   forecast: {
     expected_rainfall_24h_mm: number;
@@ -374,6 +438,7 @@ export interface ScientificInvestigationData {
   };
   provenance: DataProvenance[];
   generated_at: string;
+  engine_version?: string;
   data_mode: string;
 }
 
