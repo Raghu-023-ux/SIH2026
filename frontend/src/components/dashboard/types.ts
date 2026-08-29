@@ -200,6 +200,14 @@ export interface SoilDepthLayer {
   bar_fill_pct: number;
 }
 
+export interface ShortDurationAccumulation {
+  hours: number;
+  label: string;
+  rainfall_mm: number;
+  intensity_mm_h: number;
+  is_peak_window: boolean;
+}
+
 export interface TimelineSeriesItem {
   timestamp: string;
   timestamp_str: string;
@@ -262,6 +270,17 @@ export interface UncertaintyData {
   known_missing_inputs: string[];
 }
 
+export interface EarthObservationSummaryItem {
+  provider: string;
+  status: string;
+  configured: boolean;
+  latest_acquisition_time?: string | null;
+  collection?: string;
+  spatial_coverage?: string;
+  product_status?: string;
+  note?: string;
+}
+
 export interface ScientificInvestigationData {
   station: {
     id: string;
@@ -270,22 +289,22 @@ export interface ScientificInvestigationData {
     state: string;
     latitude: number;
     longitude: number;
-    elevation_m: number;
-    slope_angle_deg: number;
-    susceptibility_score: number;
+    elevation_m?: number;
+    slope_angle_deg?: number;
+    susceptibility_score?: number;
   };
   current_assessment: {
     risk_score: number;
     risk_level: string;
     confidence_score: number;
-    confidence_pct: number;
+    confidence_pct?: number;
     timestamp: string;
-    active_event: boolean;
+    active_event?: boolean;
     event_id?: string | null;
     event_severity?: string | null;
     event_status?: string | null;
-    summary_text: string;
-    disclaimer: string;
+    summary_text?: string;
+    disclaimer?: string;
   };
   risk_trajectory: {
     current_risk_score: number;
@@ -295,58 +314,54 @@ export interface ScientificInvestigationData {
     delta_6h: number;
     direction: string;
     rate_of_change_points_per_hour: number;
-    acceleration_label: string;
+    acceleration_label?: string;
     explanation: string;
   };
   rainfall: {
     intensity: {
       current_intensity_mm_h: number;
-      intensity_6h_avg_mm_h: number;
+      rolling_3h_mm: number;
+      rolling_6h_mm: number;
+      rolling_24h_mm: number;
       classification: string;
-      explanation: string;
+      source_note: string;
     };
-    short_duration_table: ShortDurationItem[];
     max_short_duration?: {
       max_1h_mm: number;
+      max_1h_timestamp?: string | null;
       max_3h_mm: number;
       max_6h_mm: number;
-      window_hours_evaluated: number;
+      window_hours: number;
     };
     event_segmentation?: {
-      status: string;
+      event_active: boolean;
+      event_start_time?: string | null;
+      event_peak_time?: string | null;
       peak_intensity_mm_h: number;
-      active_wet_duration_hours: number;
-      antecedent_dry_hours: number;
-    };
-    antecedent_wetness_index?: {
-      api_value: number;
+      event_duration_hours: number;
+      total_event_rainfall_mm: number;
       classification: string;
-      formula_label: string;
     };
+    short_duration_table: ShortDurationAccumulation[];
     persistence: {
       current_wet_spell_hours: number;
-      wet_hours_last_12h: number;
-      wet_hours_last_24h: number;
-      longest_continuous_wet_hours: number;
+      consecutive_dry_hours: number;
       persistence_level: string;
-      persistence_ratio_24h: number;
       explanation: string;
     };
-    antecedent: {
-      antecedent_24h_mm: number | null;
-      antecedent_48h_mm: number | null;
-      antecedent_72h_mm: number | null;
-      antecedent_7d_mm: number | null;
-      loading_classification: string;
-      label: string;
+    antecedent_wetness_index: {
+      api_value: number;
+      decay_factor_k: number;
+      days_analyzed: number;
+      classification: string;
+      historical_percentile: number;
+      formula_reference: string;
       explanation: string;
     };
     anomaly: {
-      current_24h_mm: number;
-      baseline_24h_mm: number;
-      deviation_mm: number;
-      z_score: number;
-      anomaly_status: string;
+      anomaly_score_sigma: number;
+      departure_mm: number;
+      is_anomalous: boolean;
       baseline_source: string;
       explanation: string;
     };
@@ -420,6 +435,7 @@ export interface ScientificInvestigationData {
   conditioning_factors?: ConditioningFactor[];
   uncertainty?: UncertaintyData;
   data_quality_matrix?: DataQualityMatrixItem[];
+  earth_observation?: EarthObservationSummaryItem;
   timeline_series: TimelineSeriesItem[];
   forecast: {
     expected_rainfall_24h_mm: number;

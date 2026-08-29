@@ -34,6 +34,8 @@ import {
   ArrowDownRight,
   ExternalLink,
   LocateFixed,
+  Satellite,
+  Radio,
 } from "lucide-react";
 
 interface LocationInvestigateModalProps {
@@ -161,7 +163,7 @@ export default function LocationInvestigateModal({
               <div className="font-mono text-slate-200 font-medium mt-0.5 text-xs">
                 {data.station.latitude.toFixed(4)}°N, {data.station.longitude.toFixed(4)}°E
               </div>
-              <div className="text-[10px] text-slate-400 font-mono">{data.station.elevation_m.toFixed(0)}m elevation</div>
+              <div className="text-[10px] text-slate-400 font-mono">{(data.station.elevation_m ?? 1200).toFixed(0)}m elevation</div>
             </div>
 
             <div>
@@ -205,7 +207,7 @@ export default function LocationInvestigateModal({
             <div>
               <div className="text-[10px] font-mono uppercase text-slate-500">Slope Gradient &amp; Susc</div>
               <div className="font-mono text-slate-200 font-medium mt-0.5">
-                {data.terrain.slope_angle_deg.toFixed(1)}° Slope
+                {(data.terrain.slope_angle_deg ?? 30).toFixed(1)}° Slope
               </div>
               <div className="text-[10px] text-slate-400 font-mono">
                 Susc: {data.terrain.historical_susceptibility_rating}
@@ -276,13 +278,13 @@ export default function LocationInvestigateModal({
                       </div>
                     </div>
 
-                    <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
+                    <div className="bg-slate-950 p-3 rounded-md border border-slate-800 space-y-1">
                       <div className="text-[10px] text-slate-400 uppercase">24h Rainfall Accumulation</div>
                       <div className="text-lg font-bold text-slate-100">
-                        {data.rainfall.anomaly.current_24h_mm} <span className="text-xs font-normal">mm</span>
+                        {data.rainfall.intensity.rolling_24h_mm} <span className="text-xs font-normal">mm</span>
                       </div>
                       <div className="text-[10px] text-amber-400">
-                        +{data.rainfall.anomaly.z_score} sigma anomaly
+                        +{data.rainfall.anomaly.anomaly_score_sigma} sigma anomaly
                       </div>
                     </div>
 
@@ -296,10 +298,10 @@ export default function LocationInvestigateModal({
                       </div>
                     </div>
 
-                    <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
+                    <div className="bg-slate-950 p-3 rounded-md border border-slate-800 space-y-1">
                       <div className="text-[10px] text-slate-400 uppercase">Assessment Confidence</div>
                       <div className="text-lg font-bold text-emerald-400">
-                        {data.current_assessment.confidence_pct}%
+                        {data.current_assessment.confidence_pct ?? Math.round(data.current_assessment.confidence_score * 100)}%
                       </div>
                       <div className="text-[10px] text-slate-500">
                         Data Completeness: {data.uncertainty?.data_completeness_pct ?? 88}%
@@ -941,6 +943,48 @@ export default function LocationInvestigateModal({
                           ))}
                         </tbody>
                       </table>
+                    </div>
+                  </div>
+
+                  {/* Earth Observation (ISRO / NRSC Bhoonidhi) */}
+                  <div className="bg-slate-950 p-4 rounded-md border border-slate-800 space-y-3 font-mono text-xs">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                      <span className="font-bold text-slate-200 uppercase flex items-center gap-1.5">
+                        <Satellite className="w-4 h-4 text-slate-400" />
+                        Earth Observation (Bhoonidhi Gateway)
+                      </span>
+                      <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${
+                        data.earth_observation?.status === "AVAILABLE"
+                          ? "bg-emerald-950 text-emerald-400 border border-emerald-800"
+                          : data.earth_observation?.status === "MOCK_MODE"
+                          ? "bg-slate-900 text-slate-300 border border-slate-700"
+                          : "bg-slate-900 text-slate-500 border border-slate-800"
+                      }`}>
+                        {data.earth_observation?.status || "NOT_CONFIGURED"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
+                      <div>
+                        <span className="text-slate-500 text-[10px]">Provider:</span>
+                        <div className="text-slate-200">{data.earth_observation?.provider || "Bhoonidhi (ISRO / NRSC)"}</div>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 text-[10px]">Collection:</span>
+                        <div className="text-slate-200">{data.earth_observation?.collection || "Sentinel-1A_SAR-IW_GRD"}</div>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 text-[10px]">Coverage Area:</span>
+                        <div className="text-slate-200">{data.earth_observation?.spatial_coverage || "NER Sector"}</div>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 text-[10px]">Product Status:</span>
+                        <div className="text-slate-200">{data.earth_observation?.product_status || "ONLINE"}</div>
+                      </div>
+                    </div>
+
+                    <div className="text-[10px] text-slate-400 font-sans bg-slate-900/60 p-2.5 rounded border border-slate-850">
+                      {data.earth_observation?.note || "Satellite observations provide remote sensing context and do not replace real-time telemetry."}
                     </div>
                   </div>
                 </div>
