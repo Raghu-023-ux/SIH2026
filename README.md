@@ -3,8 +3,9 @@
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI_0.115-009688?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Next.js](https://img.shields.io/badge/Frontend-Next.js_15_App_Router-black?style=flat&logo=next.js&logoColor=white)](https://nextjs.org)
 [![CAP v1.2 Compliant](https://img.shields.io/badge/Standard-OASIS_CAP_v1.2-blue?style=flat)](https://docs.oasis-open.org/emergency/cap/v1.2/CAP-v1.2.html)
-[![Tests](https://img.shields.io/badge/Pytest-67_Passed-brightgreen?style=flat&logo=pytest&logoColor=white)](https://pytest.org)
+[![Tests](https://img.shields.io/badge/Pytest-73_Passed-brightgreen?style=flat&logo=pytest&logoColor=white)](https://pytest.org)
 [![Docker Ready](https://img.shields.io/badge/Deployment-Docker_Compose-2496ED?style=flat&logo=docker&logoColor=white)](https://www.docker.com)
+[![Engine Version](https://img.shields.io/badge/Engine_Version-prototype--v0.3-indigo?style=flat)](docs/core-engine-architecture.md)
 
 ---
 

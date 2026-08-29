@@ -276,6 +276,18 @@ class EvidenceSummary(BaseModel):
     missing_sensor_observations: List[str]
 
 
+# --- Earth Observation Investigation Summary ---
+class EarthObservationSummary(BaseModel):
+    provider: str = "Bhoonidhi (ISRO / NRSC Open Data)"
+    status: str = "NOT_CONFIGURED"  # AVAILABLE, NOT_CONFIGURED, MOCK_MODE
+    configured: bool = False
+    latest_acquisition_time: Optional[str] = None
+    collection: Optional[str] = "Sentinel-1A_SAR-IW_GRD"
+    spatial_coverage: Optional[str] = "North Eastern Region (NER)"
+    product_status: str = "ONLINE"
+    note: str = "Earth Observation metadata indexed. Satellite data acts as contextual evidence."
+
+
 # --- Consolidated Station Investigation Payload ---
 class ScientificStationInvestigationResponse(BaseModel):
     station: Dict[str, Any]
@@ -289,6 +301,7 @@ class ScientificStationInvestigationResponse(BaseModel):
     conditioning_factors: List[ConditioningFactorItem] = Field(default_factory=list)
     uncertainty: UncertaintyAnalysis
     data_quality_matrix: List[DataCompletenessMatrixItem] = Field(default_factory=list)
+    earth_observation: EarthObservationSummary = Field(default_factory=EarthObservationSummary)
     timeline_series: List[TimelineSeriesPoint]
     forecast: ForecastOutlookPackage
     assessment_drivers: List[AssessmentDriverItem]

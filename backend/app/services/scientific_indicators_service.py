@@ -940,6 +940,23 @@ class ScientificIndicatorsService:
             "disclaimer": "Prototype Risk Index. Does not represent official government warning."
         }
 
+        from backend.app.services.earth_observation_provider import get_earth_observation_provider
+        from backend.app.schemas.scientific import EarthObservationSummary
+
+        eo_provider = get_earth_observation_provider()
+        eo_health = eo_provider.get_health_status()
+
+        eo_summary = EarthObservationSummary(
+            provider=eo_health.provider_name,
+            status=eo_health.status,
+            configured=eo_health.configured,
+            latest_acquisition_time=now_str,
+            collection="Sentinel-1A_SAR-IW_GRD",
+            spatial_coverage=f"{loc.district}, {loc.state}",
+            product_status="ONLINE" if eo_health.configured else "UNCONFIGURED",
+            note=eo_health.note,
+        )
+
         return ScientificStationInvestigationResponse(
             station=station_meta,
             current_assessment=current_assessment,
@@ -952,6 +969,7 @@ class ScientificIndicatorsService:
             conditioning_factors=conditioning,
             uncertainty=uncertainty,
             data_quality_matrix=quality_matrix,
+            earth_observation=eo_summary,
             timeline_series=timeline_series,
             forecast=forecast_pkg,
             assessment_drivers=drivers,
