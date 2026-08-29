@@ -13,7 +13,6 @@ interface RiskMapInnerProps {
   onOpenInvestigate: (locationId: string) => void;
 }
 
-// Helper component to smoothly center on selected location
 function MapController({ selectedLocation }: { selectedLocation: LocationMapItem | undefined }) {
   const map = useMap();
   useEffect(() => {
@@ -26,7 +25,6 @@ function MapController({ selectedLocation }: { selectedLocation: LocationMapItem
   return null;
 }
 
-// Generate custom SVG marker based on risk level
 function createCustomMarker(riskLevel: string, isSelected: boolean, hasActiveEvent: boolean) {
   let color = "#10b981"; // emerald
   let borderColor = "#059669";
@@ -58,30 +56,37 @@ function createCustomMarker(riskLevel: string, isSelected: boolean, hasActiveEve
   const html = `
     <div style="position: relative; width: ${size}px; height: ${size}px; display: flex; align-items: center; justify-content: center;">
       ${
-        hasActiveEvent || riskLevel === "CRITICAL"
-          ? `<div style="position: absolute; width: 100%; height: 100%; border-radius: 50%; background-color: ${color}; opacity: 0.5;" class="${pulseClass}"></div>`
+        hasActiveEvent
+          ? `<span class="${pulseClass}" style="position: absolute; width: ${
+              size + 14
+            }px; height: ${
+              size + 14
+            }px; border-radius: 9999px; background-color: ${color}; opacity: 0.35;"></span>`
           : ""
       }
       <div style="
-        position: relative;
-        width: ${size - 4}px;
-        height: ${size - 4}px;
+        width: ${size}px;
+        height: ${size}px;
+        border-radius: 9999px;
         background-color: ${color};
-        border: 2px solid ${isSelected ? "#ffffff" : borderColor};
-        border-radius: 50%;
-        box-shadow: 0 0 10px ${color}80, 0 2px 4px rgba(0,0,0,0.6);
+        border: ${isSelected ? "3px solid #ffffff" : `2px solid ${borderColor}`};
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.9);
         display: flex;
         align-items: center;
         justify-content: center;
+        color: #ffffff;
+        font-weight: bold;
+        font-size: ${isSelected ? "11px" : "9px"};
+        font-family: monospace;
       ">
-        <div style="width: 6px; height: 6px; border-radius: 50%; background: #ffffff;"></div>
+        ${riskLevel ? riskLevel.slice(0, 1) : "L"}
       </div>
     </div>
   `;
 
   return L.divIcon({
-    html: html,
-    className: "custom-leaflet-risk-marker",
+    className: "custom-map-marker",
+    html,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
     popupAnchor: [0, -size / 2],
@@ -94,27 +99,25 @@ export default function RiskMapInner({
   onSelectLocation,
   onOpenInvestigate,
 }: RiskMapInnerProps) {
-  // NER Region center
-  const centerLat = 26.0;
-  const centerLng = 92.5;
-  const zoomLevel = 7;
-
-  const selectedLoc = locations.find((l) => l.id === selectedLocationId);
+  const selectedLocation = locations.find((l) => l.id === selectedLocationId);
+  const defaultCenter: [number, number] = [26.2006, 92.9376];
+  const defaultZoom = 7;
 
   return (
-    <div className="relative w-full h-[460px] lg:h-[540px] rounded-xl overflow-hidden border border-slate-800 shadow-inner">
+    <div className="relative w-full h-[460px] lg:h-[540px] rounded overflow-hidden border border-zinc-800 shadow-xl bg-black">
       <MapContainer
-        center={[centerLat, centerLng]}
-        zoom={zoomLevel}
-        scrollWheelZoom={true}
-        style={{ width: "100%", height: "100%" }}
+        center={defaultCenter}
+        zoom={defaultZoom}
+        className="w-full h-full"
+        zoomControl={false}
+        attributionControl={false}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          maxZoom={19}
         />
 
-        <MapController selectedLocation={selectedLoc} />
+        <MapController selectedLocation={selectedLocation} />
 
         {locations.map((loc) => {
           const isSelected = loc.id === selectedLocationId;
@@ -130,60 +133,60 @@ export default function RiskMapInner({
               }}
             >
               <Popup>
-                <div className="p-3.5 space-y-2.5 max-w-[260px] text-slate-200">
+                <div className="p-3.5 space-y-2.5 max-w-[260px] text-white bg-black font-sans">
                   {/* Popup Header */}
-                  <div className="border-b border-slate-700/80 pb-2">
-                    <div className="text-[11px] font-mono text-slate-400">
+                  <div className="border-b border-zinc-800 pb-2">
+                    <div className="text-[11px] font-mono text-zinc-400">
                       {loc.district}, {loc.state}
                     </div>
-                    <div className="text-sm font-bold text-slate-100 leading-tight">
+                    <div className="text-sm font-black text-white leading-tight">
                       {loc.name}
                     </div>
                   </div>
 
                   {/* Risk Badge & Score */}
-                  <div className="flex items-center justify-between bg-slate-900/90 p-2 rounded-md border border-slate-800">
+                  <div className="flex items-center justify-between bg-zinc-950 p-2 rounded border border-zinc-800 font-mono">
                     <div>
-                      <div className="text-[10px] text-slate-400 font-mono">RISK SCORE</div>
-                      <div className="text-lg font-black text-slate-100 font-mono">
+                      <div className="text-[10px] text-zinc-400">RISK SCORE</div>
+                      <div className="text-lg font-black text-white">
                         {loc.risk_score.toFixed(1)}
-                        <span className="text-[10px] text-slate-500 font-normal"> / 100</span>
+                        <span className="text-[10px] text-zinc-500 font-normal"> / 100</span>
                       </div>
                     </div>
                     <div className="text-right">
                       <span
-                        className={`inline-block px-2 py-0.5 rounded text-xs font-mono font-bold ${
+                        className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${
                           loc.risk_level === "CRITICAL"
-                            ? "bg-red-950 text-red-300 border border-red-800"
+                            ? "bg-red-950 text-red-300 border border-red-700"
                             : loc.risk_level === "HIGH"
-                            ? "bg-orange-950 text-orange-300 border border-orange-800"
+                            ? "bg-orange-950 text-orange-300 border border-orange-700"
                             : loc.risk_level === "MODERATE"
-                            ? "bg-yellow-950 text-yellow-300 border border-yellow-800"
-                            : "bg-emerald-950 text-emerald-300 border border-emerald-800"
+                            ? "bg-amber-950 text-amber-300 border border-amber-700"
+                            : "bg-emerald-950 text-emerald-300 border border-emerald-700"
                         }`}
                       >
                         {loc.risk_level}
                       </span>
-                      <div className="text-[10px] text-slate-400 mt-0.5 font-mono">
+                      <div className="text-[10px] text-zinc-400 mt-0.5">
                         {(loc.confidence_score * 100).toFixed(0)}% Conf
                       </div>
                     </div>
                   </div>
 
                   {/* Telemetry Snapshot */}
-                  <div className="grid grid-cols-2 gap-1.5 text-[11px] text-slate-400">
-                    <div className="bg-slate-900/60 p-1.5 rounded border border-slate-800/80 flex items-center gap-1.5">
+                  <div className="grid grid-cols-2 gap-1.5 text-[11px] text-zinc-400 font-mono">
+                    <div className="bg-zinc-950 p-1.5 rounded border border-zinc-800 flex items-center gap-1.5">
                       <Droplets className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
                       <div>
-                        <div className="text-[9px] text-slate-500">24h RAIN</div>
-                        <div className="font-mono text-slate-200">{loc.rainfall_24h ?? 0} mm</div>
+                        <div className="text-[9px] text-zinc-500 font-bold">24h RAIN</div>
+                        <div className="text-white font-bold">{loc.rainfall_24h ?? 0} mm</div>
                       </div>
                     </div>
-                    <div className="bg-slate-900/60 p-1.5 rounded border border-slate-800/80 flex items-center gap-1.5">
+                    <div className="bg-zinc-950 p-1.5 rounded border border-zinc-800 flex items-center gap-1.5">
                       <Mountain className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
                       <div>
-                        <div className="text-[9px] text-slate-500">SOIL MOIST</div>
-                        <div className="font-mono text-slate-200">{loc.soil_moisture ?? "--"}%</div>
+                        <div className="text-[9px] text-zinc-500 font-bold">SOIL MOIST</div>
+                        <div className="text-white font-bold">{loc.soil_moisture ?? "--"}%</div>
                       </div>
                     </div>
                   </div>
@@ -192,7 +195,7 @@ export default function RiskMapInner({
                   <div className="pt-1 flex gap-2">
                     <button
                       onClick={() => onOpenInvestigate(loc.id)}
-                      className="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-medium py-1.5 px-2.5 rounded transition flex items-center justify-center gap-1 shadow"
+                      className="w-full bg-white hover:bg-zinc-200 text-black text-[11px] font-black py-1.5 px-2.5 rounded transition flex items-center justify-center gap-1 shadow-sm font-mono"
                     >
                       <span>Investigate Station</span>
                       <ArrowUpRight className="w-3.5 h-3.5" />
@@ -206,26 +209,26 @@ export default function RiskMapInner({
       </MapContainer>
 
       {/* Map Overlay Legend */}
-      <div className="absolute top-3 right-3 z-[1000] bg-slate-950/90 border border-slate-800 rounded-lg px-3 py-2 text-xs backdrop-blur-md shadow-lg space-y-1.5">
-        <div className="text-[10px] font-mono uppercase font-bold text-slate-400 tracking-wider">
+      <div className="absolute top-3 right-3 z-[1000] bg-black/90 border border-zinc-800 rounded px-3 py-2 text-xs shadow-lg space-y-1.5 font-mono">
+        <div className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
           Risk Severity (NER)
         </div>
         <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
-            <span className="text-slate-200">Critical (&ge;75)</span>
+            <span className="text-zinc-200">Critical (&ge;75)</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-orange-500" />
-            <span className="text-slate-200">High (50-74)</span>
+            <span className="text-zinc-200">High (50-74)</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
-            <span className="text-slate-200">Moderate (25-49)</span>
+            <span className="text-zinc-200">Moderate (25-49)</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-            <span className="text-slate-200">Low (0-24)</span>
+            <span className="text-zinc-200">Low (0-24)</span>
           </div>
         </div>
       </div>

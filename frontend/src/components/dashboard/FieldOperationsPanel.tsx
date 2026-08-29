@@ -58,28 +58,42 @@ interface FieldReportItem {
 
 interface AssistanceRequestItem {
   id: string;
-  event_id?: string | null;
   team_id: string;
   request_type: string;
   priority: string;
   description: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  timestamp: string;
   status: string;
-  assigned_unit?: string | null;
-  created_at: string;
+}
+
+interface OperationalMessageItem {
+  id: string;
+  sender_type: string;
+  sender_name: string;
+  recipient_type: string;
+  recipient_id?: string | null;
+  priority: string;
+  message_text: string;
+  timestamp: string;
+  status: string;
+}
+
+interface FieldOperationsSummary {
+  teams_deployed: number;
+  teams_on_scene: number;
+  teams_need_assistance: number;
+  unacknowledged_reports_count: number;
+  active_assistance_requests_count: number;
+  recent_reports: FieldReportItem[];
+  teams: FieldTeamItem[];
+  assistance_requests: AssistanceRequestItem[];
+  recent_messages: OperationalMessageItem[];
 }
 
 interface FieldOperationsPanelProps {
-  summary: {
-    total_teams: number;
-    teams_deployed: number;
-    teams_on_scene: number;
-    teams_need_assistance: number;
-    unacknowledged_reports_count: number;
-    active_assistance_requests_count: number;
-    teams: FieldTeamItem[];
-    recent_reports: FieldReportItem[];
-    assistance_requests: AssistanceRequestItem[];
-  } | null;
+  summary: FieldOperationsSummary | null;
   apiUrl: string;
   onRefresh: () => void;
 }
@@ -96,7 +110,7 @@ export default function FieldOperationsPanel({
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [selectedImageModal, setSelectedImageModal] = useState<string | null>(null);
 
-  // Broadcast Operational Message
+  // Handle Broadcast Directive to Field
   const handleBroadcast = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!directiveText.trim()) return;
@@ -107,10 +121,12 @@ export default function FieldOperationsPanel({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          sender_id: "Central Command Duty Officer",
-          recipient_team: recipient,
-          priority: priority,
-          message: directiveText,
+          sender_type: "CENTRAL_COMMAND",
+          sender_name: "Central Intelligence HQ",
+          recipient_type: recipient === "ALL_FIELD_TEAMS" ? "ALL_FIELD_TEAMS" : "SPECIFIC_TEAM",
+          recipient_id: recipient === "ALL_FIELD_TEAMS" ? null : recipient,
+          priority,
+          message_text: directiveText,
         }),
       });
       if (res.ok) {
@@ -171,19 +187,19 @@ export default function FieldOperationsPanel({
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg font-sans space-y-3">
+    <div className="bg-zinc-950 border border-zinc-800 rounded overflow-hidden font-sans text-white space-y-3">
       {/* Header */}
-      <div className="bg-slate-950 px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+      <div className="bg-black px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-orange-600/20 border border-orange-500/30 flex items-center justify-center text-orange-400">
-            <Radio className="w-4 h-4" />
+          <div className="w-7 h-7 rounded bg-zinc-900 border border-zinc-700 flex items-center justify-center text-white font-bold">
+            <Radio className="w-3.5 h-3.5" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+            <h3 className="text-xs font-black uppercase tracking-wider text-white font-mono flex items-center gap-2">
               On-Ground Rescue Intelligence &amp; Field Coordination
             </h3>
-            <p className="text-[11px] text-slate-400 font-mono">
-              Live feedback loop with deployed SDRF / NDRF units
+            <p className="text-[10px] text-zinc-400 font-mono">
+              Live ground truth loop with deployed SDRF / NDRF units
             </p>
           </div>
         </div>
@@ -191,7 +207,7 @@ export default function FieldOperationsPanel({
         <Link
           href="/field"
           target="_blank"
-          className="text-xs font-mono bg-indigo-950 hover:bg-indigo-900 border border-indigo-800 text-indigo-300 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5"
+          className="text-xs font-mono bg-white hover:bg-zinc-200 text-black font-black px-3 py-1.5 rounded transition flex items-center gap-1.5 shadow-sm"
         >
           <ExternalLink className="w-3.5 h-3.5" />
           Launch Field Unit App
@@ -201,32 +217,32 @@ export default function FieldOperationsPanel({
       <div className="p-4 space-y-4">
         {/* Metric Counters Strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
-          <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 flex justify-between items-center">
-            <span className="text-slate-400">Deployed Units:</span>
-            <span className="font-bold text-indigo-400">{summary?.teams_deployed ?? 3}</span>
+          <div className="bg-black p-2.5 rounded border border-zinc-800 flex justify-between items-center">
+            <span className="text-zinc-400 font-bold">Deployed Units:</span>
+            <span className="font-black text-white">{summary?.teams_deployed ?? 3}</span>
           </div>
 
-          <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 flex justify-between items-center">
-            <span className="text-slate-400">On Scene:</span>
-            <span className="font-bold text-orange-400">{summary?.teams_on_scene ?? 1}</span>
+          <div className="bg-black p-2.5 rounded border border-zinc-800 flex justify-between items-center">
+            <span className="text-zinc-400 font-bold">On Scene:</span>
+            <span className="font-black text-orange-400">{summary?.teams_on_scene ?? 1}</span>
           </div>
 
-          <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 flex justify-between items-center">
-            <span className="text-slate-400">Need Assistance:</span>
+          <div className="bg-black p-2.5 rounded border border-zinc-800 flex justify-between items-center">
+            <span className="text-zinc-400 font-bold">Need Assistance:</span>
             <span
-              className={`font-bold ${
-                (summary?.teams_need_assistance ?? 0) > 0 ? "text-red-400 animate-pulse" : "text-slate-400"
+              className={`font-black ${
+                (summary?.teams_need_assistance ?? 0) > 0 ? "text-red-400" : "text-zinc-500"
               }`}
             >
               {summary?.teams_need_assistance ?? 0}
             </span>
           </div>
 
-          <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 flex justify-between items-center">
-            <span className="text-slate-400">Pending Reports:</span>
+          <div className="bg-black p-2.5 rounded border border-zinc-800 flex justify-between items-center">
+            <span className="text-zinc-400 font-bold">Pending Reports:</span>
             <span
-              className={`font-bold ${
-                (summary?.unacknowledged_reports_count ?? 0) > 0 ? "text-yellow-400" : "text-emerald-400"
+              className={`font-black ${
+                (summary?.unacknowledged_reports_count ?? 0) > 0 ? "text-amber-400" : "text-emerald-400"
               }`}
             >
               {summary?.unacknowledged_reports_count ?? 0}
@@ -236,9 +252,9 @@ export default function FieldOperationsPanel({
 
         {/* Urgent Assistance SOS Alerts */}
         {summary?.assistance_requests && summary.assistance_requests.some((a) => a.status === "REQUESTED") && (
-          <div className="bg-red-950/80 border border-red-800 p-3 rounded-xl space-y-2">
-            <div className="text-[11px] font-mono uppercase text-red-300 font-bold flex items-center gap-1.5">
-              <AlertOctagon className="w-4 h-4 text-red-400 animate-bounce" />
+          <div className="bg-red-950/80 border border-red-700 p-3 rounded space-y-2">
+            <div className="text-[11px] font-mono uppercase text-red-300 font-black flex items-center gap-1.5">
+              <AlertOctagon className="w-4 h-4 text-red-400" />
               URGENT FIELD ASSISTANCE REQUESTED:
             </div>
             {summary.assistance_requests
@@ -246,18 +262,18 @@ export default function FieldOperationsPanel({
               .map((a) => (
                 <div
                   key={a.id}
-                  className="bg-slate-950/80 p-2.5 rounded-lg border border-red-900 flex items-center justify-between gap-3 text-xs"
+                  className="bg-black p-2.5 rounded border border-red-800 flex items-center justify-between gap-3 text-xs"
                 >
                   <div>
-                    <div className="font-mono text-[10px] text-red-400 font-bold">
+                    <div className="font-mono text-[10px] text-red-400 font-black">
                       [{a.priority}] {a.request_type} • Team: {a.team_id}
                     </div>
-                    <p className="text-slate-200 mt-0.5">{a.description}</p>
+                    <p className="text-zinc-200 mt-0.5">{a.description}</p>
                   </div>
                   <button
                     onClick={() => handleResolveAssistance(a.id)}
                     disabled={actionLoadingId === a.id}
-                    className="bg-red-600 hover:bg-red-500 text-white text-[10px] font-mono font-bold px-3 py-1.5 rounded transition flex-shrink-0"
+                    className="bg-red-600 hover:bg-red-500 text-white text-[10px] font-mono font-black px-3 py-1.5 rounded transition flex-shrink-0"
                   >
                     {actionLoadingId === a.id ? "Updating..." : "DISPATCH BACKUP"}
                   </button>
@@ -270,9 +286,9 @@ export default function FieldOperationsPanel({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           {/* Left: Incoming Ground Observations Queue (7 cols) */}
           <div className="lg:col-span-7 space-y-2">
-            <div className="text-[11px] font-mono uppercase text-slate-400 font-bold flex items-center justify-between">
+            <div className="text-[11px] font-mono uppercase text-zinc-400 font-bold flex items-center justify-between">
               <span>Incoming Ground Observations ({summary?.recent_reports?.length || 0}):</span>
-              <span className="text-slate-500 font-normal">Acts as Context Evidence</span>
+              <span className="text-zinc-500 font-normal">Context Evidence</span>
             </div>
 
             <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
@@ -280,26 +296,26 @@ export default function FieldOperationsPanel({
                 summary.recent_reports.map((rep) => (
                   <div
                     key={rep.id}
-                    className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 space-y-1.5 text-xs"
+                    className="bg-black p-2.5 rounded border border-zinc-800 space-y-1.5 text-xs"
                   >
                     <div className="flex items-center justify-between font-mono text-[10px]">
-                      <span className="text-indigo-400 font-bold">
+                      <span className="text-white font-bold">
                         {rep.report_type.replace(/_/g, " ")}
                       </span>
                       <span
-                        className={`px-1.5 py-0.2 rounded uppercase font-bold ${
+                        className={`px-1.5 py-0.2 rounded uppercase font-black ${
                           rep.severity === "CRITICAL"
-                            ? "bg-red-950 text-red-400"
+                            ? "bg-red-950 text-red-300 border border-red-700"
                             : rep.severity === "HIGH"
-                            ? "bg-orange-950 text-orange-400"
-                            : "bg-yellow-950 text-yellow-400"
+                            ? "bg-orange-950 text-orange-300 border border-orange-700"
+                            : "bg-amber-950 text-amber-300 border border-amber-700"
                         }`}
                       >
                         {rep.severity}
                       </span>
                     </div>
 
-                    <p className="text-slate-300 text-[11px] leading-normal">{rep.description}</p>
+                    <p className="text-zinc-300 text-[11px] leading-normal">{rep.description}</p>
 
                     {/* Image thumbnails */}
                     {rep.images && rep.images.length > 0 && (
@@ -309,7 +325,7 @@ export default function FieldOperationsPanel({
                             key={img.id}
                             type="button"
                             onClick={() => setSelectedImageModal(`${apiUrl}${img.url}`)}
-                            className="group relative rounded-lg overflow-hidden border border-slate-700 hover:border-indigo-400 transition"
+                            className="group relative rounded overflow-hidden border border-zinc-700 hover:border-white transition"
                           >
                             <img
                               src={`${apiUrl}${img.url}`}
@@ -322,8 +338,8 @@ export default function FieldOperationsPanel({
                     )}
 
                     {rep.latitude && rep.longitude && (
-                      <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-indigo-400" />
+                      <div className="text-[10px] text-zinc-400 font-mono flex items-center gap-1">
+                        <MapPin className="w-3 h-3 text-zinc-400" />
                         <span>
                           {rep.latitude.toFixed(4)}°N, {rep.longitude.toFixed(4)}°E
                           {rep.location_accuracy ? ` (±${rep.location_accuracy.toFixed(0)}m)` : ""}
@@ -331,15 +347,15 @@ export default function FieldOperationsPanel({
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between font-mono text-[10px] text-slate-500 pt-1 border-t border-slate-800/60">
+                    <div className="flex items-center justify-between font-mono text-[10px] text-zinc-500 pt-1 border-t border-zinc-850">
                       <span>Reported by: {rep.reported_by}</span>
                       <div className="flex items-center gap-2">
-                        <span>Status: <strong className="text-slate-300">{rep.status}</strong></span>
+                        <span>Status: <strong className="text-zinc-300">{rep.status}</strong></span>
                         {rep.status === "SUBMITTED" && (
                           <button
                             onClick={() => handleAcknowledgeReport(rep.id)}
                             disabled={actionLoadingId === rep.id}
-                            className="text-indigo-400 hover:text-indigo-300 font-bold bg-indigo-950/80 px-2 py-0.5 rounded border border-indigo-800"
+                            className="text-black font-bold bg-white hover:bg-zinc-200 px-2 py-0.5 rounded transition"
                           >
                             {actionLoadingId === rep.id ? "..." : "Acknowledge"}
                           </button>
@@ -349,7 +365,7 @@ export default function FieldOperationsPanel({
                   </div>
                 ))
               ) : (
-                <div className="bg-slate-950/60 p-4 rounded-lg text-center text-xs font-mono text-slate-500">
+                <div className="bg-black p-4 rounded text-center text-xs font-mono text-zinc-500 border border-zinc-800">
                   No field observations received yet.
                 </div>
               )}
@@ -358,23 +374,23 @@ export default function FieldOperationsPanel({
 
           {/* Right: Broadcast Operational Directive (5 cols) */}
           <div className="lg:col-span-5 space-y-2">
-            <div className="text-[11px] font-mono uppercase text-slate-400 font-bold">
+            <div className="text-[11px] font-mono uppercase text-zinc-400 font-bold">
               Broadcast Operational Directive:
             </div>
 
             <form
               onSubmit={handleBroadcast}
-              className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-2.5 text-xs font-sans"
+              className="bg-black p-3 rounded border border-zinc-800 space-y-2.5 text-xs font-sans"
             >
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">
+                  <label className="block text-[10px] font-mono uppercase text-zinc-400 mb-1 font-bold">
                     Target Unit:
                   </label>
                   <select
                     value={recipient}
                     onChange={(e) => setRecipient(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-slate-200 font-mono text-xs focus:outline-none"
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded p-1.5 text-zinc-200 font-mono text-xs focus:outline-none"
                   >
                     <option value="ALL_FIELD_TEAMS">ALL FIELD UNITS</option>
                     <option value="ALPHA-1">ALPHA-1 (Gangtok)</option>
@@ -384,13 +400,13 @@ export default function FieldOperationsPanel({
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">
+                  <label className="block text-[10px] font-mono uppercase text-zinc-400 mb-1 font-bold">
                     Priority:
                   </label>
                   <select
                     value={priority}
                     onChange={(e) => setPriority(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded p-1.5 text-slate-200 font-mono text-xs focus:outline-none"
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded p-1.5 text-zinc-200 font-mono text-xs focus:outline-none"
                   >
                     <option value="NORMAL">NORMAL</option>
                     <option value="IMPORTANT">IMPORTANT</option>
@@ -400,7 +416,7 @@ export default function FieldOperationsPanel({
               </div>
 
               <div>
-                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">
+                <label className="block text-[10px] font-mono uppercase text-zinc-400 mb-1 font-bold">
                   Directive / Caution Notice:
                 </label>
                 <textarea
@@ -409,14 +425,14 @@ export default function FieldOperationsPanel({
                   onChange={(e) => setDirectiveText(e.target.value)}
                   placeholder="e.g. Avoid Sector 4 arterial road. Severe debris flow reported..."
                   required
-                  className="w-full bg-slate-900 border border-slate-800 rounded p-2 text-slate-200 text-xs focus:outline-none"
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded p-2 text-zinc-200 text-xs focus:outline-none"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={isBroadcasting || !directiveText.trim()}
-                className="w-full bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-50 text-white py-2 rounded-lg font-mono font-semibold text-xs transition flex items-center justify-center gap-1.5"
+                className="w-full bg-white hover:bg-zinc-200 active:bg-zinc-300 disabled:opacity-50 text-black py-2 rounded font-mono font-black text-xs transition flex items-center justify-center gap-1.5 shadow-sm"
               >
                 <Send className="w-3.5 h-3.5" />
                 {isBroadcasting ? "Transmitting..." : "Send Directive to Field"}
@@ -429,26 +445,26 @@ export default function FieldOperationsPanel({
       {/* Full Resolution Ground Evidence Inspection Modal */}
       {selectedImageModal && (
         <div
-          className="fixed inset-0 bg-black/90 z-[3000] flex items-center justify-center p-4 backdrop-blur-md"
+          className="fixed inset-0 bg-black/90 z-[3000] flex items-center justify-center p-4 backdrop-blur-sm"
           onClick={() => setSelectedImageModal(null)}
         >
-          <div className="relative max-w-2xl w-full bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
-            <div className="p-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
-              <span className="text-xs font-mono font-bold text-slate-200">
+          <div className="relative max-w-2xl w-full bg-zinc-950 border border-zinc-850 rounded overflow-hidden shadow-2xl">
+            <div className="p-3 bg-black border-b border-zinc-800 flex items-center justify-between">
+              <span className="text-xs font-mono font-bold text-zinc-200">
                 Ground Evidence Inspection
               </span>
               <button
                 onClick={() => setSelectedImageModal(null)}
-                className="bg-slate-800 hover:bg-slate-700 text-white p-1 rounded-lg"
+                className="bg-zinc-800 hover:bg-zinc-700 text-white p-1 rounded"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="p-2 flex items-center justify-center bg-black/60">
+            <div className="p-2 flex items-center justify-center bg-black">
               <img
                 src={selectedImageModal}
                 alt="Ground Evidence Full View"
-                className="w-full h-auto max-h-[75vh] object-contain rounded-lg"
+                className="w-full h-auto max-h-[75vh] object-contain rounded"
               />
             </div>
           </div>

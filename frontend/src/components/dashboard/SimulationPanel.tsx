@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { LocationMapItem } from "@/components/dashboard/types";
-import { Play, Sparkles, AlertTriangle, CheckCircle2, RotateCcw, ChevronDown } from "lucide-react";
+import { Play, Sliders, AlertTriangle, CheckCircle2, ChevronDown } from "lucide-react";
 
 interface SimulationPanelProps {
   locations: LocationMapItem[];
@@ -37,98 +37,91 @@ export default function SimulationPanel({
   };
 
   const scenariosList = [
-    { id: "normal", name: "1. Normal Baseline (Safe, Minimal Rain)", color: "text-emerald-400" },
-    { id: "heavy_rain", name: "2. Heavy Rain Burst (Moderate / Watch)", color: "text-yellow-400" },
-    { id: "persistent_rain", name: "3. Persistent Rain 48h (High Risk)", color: "text-orange-400" },
-    { id: "landslide_risk_increasing", name: "4. Escalating Multi-Factor Threat", color: "text-orange-400" },
-    { id: "critical", name: "5. Critical Emergency (>75 Score)", color: "text-red-400" },
-    { id: "recovery", name: "6. Recovery (Moisture Drainage & Resolution)", color: "text-emerald-400" },
+    { id: "normal", name: "1. Normal Baseline (Safe, Minimal Rain)" },
+    { id: "heavy_rain", name: "2. Heavy Rain Burst (Moderate / Watch)" },
+    { id: "persistent_rain", name: "3. Persistent Rain 48h (High Risk)" },
+    { id: "landslide_risk_increasing", name: "4. Escalating Multi-Factor Threat" },
+    { id: "critical", name: "5. Critical Emergency (>75 Score)" },
+    { id: "recovery", name: "6. Recovery (Moisture Drainage & Resolution)" },
   ];
 
   return (
-    <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 shadow-lg backdrop-blur-sm space-y-3">
+    <div className="bg-zinc-950 border border-zinc-800 rounded p-4 space-y-3 font-sans text-white">
       {/* Collapsible Header */}
       <div
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center justify-between cursor-pointer select-none"
       >
         <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-indigo-400" />
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-            Operational Disaster Simulation Console (Demo Controls)
+          <Sliders className="w-4 h-4 text-zinc-400" />
+          <h3 className="text-xs font-black uppercase tracking-wider text-white font-mono">
+            Disaster Scenario Simulation (Demo Controls)
           </h3>
         </div>
-
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-mono text-slate-500">
-            {isOpen ? "Hide Controls" : "Configure Scenarios"}
-          </span>
-          <ChevronDown
-            className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
-          />
-        </div>
+        <ChevronDown
+          className={`w-4 h-4 text-zinc-400 transition-transform ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
       </div>
 
-      {/* Console Controls */}
       {isOpen && (
-        <div className="pt-2 border-t border-slate-800 space-y-3">
-          <p className="text-[11px] text-slate-400">
-            Inject deterministic meteorological &amp; pore saturation profiles to demonstrate risk model behavior, statistical anomaly detection, and automated event state escalation/resolution.
-          </p>
+        <div className="pt-2 border-t border-zinc-850 space-y-3 text-xs font-mono">
+          {/* Target Station Selector */}
+          <div>
+            <label className="block text-[10px] text-zinc-500 uppercase font-bold mb-1">
+              Target Station Sector:
+            </label>
+            <select
+              value={selectedLocationId || ""}
+              onChange={(e) => onSelectLocation(e.target.value)}
+              className="w-full bg-black border border-zinc-800 rounded p-2 text-xs text-white focus:outline-none focus:border-zinc-600 font-mono font-bold"
+            >
+              {locations.map((loc) => (
+                <option key={loc.id} value={loc.id} className="bg-zinc-950">
+                  {loc.name} ({loc.district}, {loc.state}) — Risk: {loc.risk_score.toFixed(0)}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-950/70 p-3 rounded-xl border border-slate-800">
-            {/* Target Location */}
-            <div>
-              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">
-                Target Station
-              </label>
-              <select
-                value={selectedLocationId || ""}
-                onChange={(e) => onSelectLocation(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-medium"
-              >
-                {locations.map((loc) => (
-                  <option key={loc.id} value={loc.id}>
-                    {loc.name} ({loc.state})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Scenario */}
-            <div>
-              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">
-                Hazard Profile Scenario
-              </label>
-              <select
-                value={scenario}
-                onChange={(e) => setScenario(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-medium"
-              >
-                {scenariosList.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Action Button */}
-            <div className="flex items-end">
-              <button
-                onClick={handleExecute}
-                disabled={isSimulating}
-                className="w-full bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-50 text-white text-xs font-semibold py-2 px-3 rounded-lg transition flex items-center justify-center gap-1.5 shadow-md shadow-indigo-950"
-              >
-                <Play className={`w-3.5 h-3.5 ${isSimulating ? "animate-spin" : ""}`} />
-                {isSimulating ? "Injecting & Evaluating..." : "Run Scenario Simulation"}
-              </button>
+          {/* Scenario Selector */}
+          <div>
+            <label className="block text-[10px] text-zinc-500 uppercase font-bold mb-1">
+              Hazard Scenario:
+            </label>
+            <div className="grid grid-cols-1 gap-1.5">
+              {scenariosList.map((sc) => (
+                <button
+                  key={sc.id}
+                  onClick={() => setScenario(sc.id)}
+                  className={`p-2 rounded border text-left text-xs transition font-bold flex items-center justify-between ${
+                    scenario === sc.id
+                      ? "bg-white text-black border-white shadow-sm"
+                      : "bg-black border-zinc-850 text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  <span>{sc.name}</span>
+                  {scenario === sc.id && <span className="text-[10px] uppercase font-black font-mono">SELECTED</span>}
+                </button>
+              ))}
             </div>
           </div>
 
+          {/* Execution Button */}
+          <button
+            onClick={handleExecute}
+            disabled={isSimulating}
+            className="w-full bg-white hover:bg-zinc-200 active:bg-zinc-300 disabled:opacity-50 text-black font-black py-2 rounded transition flex items-center justify-center gap-2 shadow-sm font-mono"
+          >
+            <Play className={`w-3.5 h-3.5 ${isSimulating ? "animate-spin" : ""}`} />
+            {isSimulating ? "Injecting Scenario Telemetry..." : "Inject Scenario & Evaluate Engine"}
+          </button>
+
+          {/* Feedback */}
           {feedback && (
-            <div className="p-2.5 bg-slate-950 border border-indigo-900/60 rounded-lg text-xs text-indigo-300 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+            <div className="p-2.5 rounded bg-black border border-zinc-800 text-[11px] text-zinc-300 flex items-center gap-1.5 font-sans">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
               <span>{feedback}</span>
             </div>
           )}

@@ -17,8 +17,6 @@ import {
   Minus,
   FileText,
   Radio,
-  Sliders,
-  AlertOctagon,
 } from "lucide-react";
 
 interface EventDetailPanelProps {
@@ -62,8 +60,8 @@ export default function EventDetailPanel({
 }: EventDetailPanelProps) {
   if (!location) {
     return (
-      <div className="bg-slate-900 border border-slate-800 rounded-md p-6 text-center text-slate-500 font-mono text-xs flex flex-col items-center justify-center gap-2">
-        Select a station on the map or active event queue to inspect factor diagnostics.
+      <div className="bg-zinc-950 border border-zinc-800 rounded p-6 text-center text-zinc-500 font-mono text-xs flex flex-col items-center justify-center gap-2">
+        Select a station on the tactical map or active event queue to inspect factor diagnostics.
       </div>
     );
   }
@@ -72,7 +70,6 @@ export default function EventDetailPanel({
   const riskLevel = latestAssessment?.risk_level ?? "LOW";
   const confidenceScore = latestAssessment?.confidence_score ?? 0.8;
   const trajectory = latestAssessment?.trajectory ?? "STABLE";
-  const reasonCodes = latestAssessment?.reason_codes ?? [];
   const factors = latestAssessment?.factors ?? [];
   const dataQuality = latestAssessment?.data_quality;
   const signalAgreement = latestAssessment?.signal_agreement;
@@ -85,19 +82,19 @@ export default function EventDetailPanel({
     switch (traj) {
       case "INCREASING":
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-red-950/80 text-red-400 border border-red-800">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black font-mono bg-red-950 text-red-300 border border-red-700">
             <TrendingUp className="w-3 h-3" /> ↑ INCREASING
           </span>
         );
       case "DECREASING":
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-emerald-950/80 text-emerald-400 border border-emerald-800">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black font-mono bg-emerald-950 text-emerald-300 border border-emerald-700">
             <TrendingDown className="w-3 h-3" /> ↓ DECREASING
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-slate-800 text-slate-300 border border-slate-700">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-zinc-900 text-zinc-300 border border-zinc-750">
             <Minus className="w-3 h-3" /> → STABLE
           </span>
         );
@@ -105,30 +102,30 @@ export default function EventDetailPanel({
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-md p-4 space-y-4 font-sans">
+    <div className="bg-zinc-950 border border-zinc-800 rounded p-4 space-y-4 font-sans text-white">
       {/* Top Header Row */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-800">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 font-bold">
               Station Sector:
             </span>
-            <h2 className="text-sm sm:text-base font-bold text-slate-100 font-mono">{location.name}</h2>
-            <span className="text-xs text-slate-400 font-mono">
+            <h2 className="text-base font-black text-white font-mono tracking-tight">{location.name}</h2>
+            <span className="text-xs text-zinc-400 font-mono">
               ({location.district}, {location.state})
             </span>
           </div>
 
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             <span
-              className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono uppercase ${
+              className={`px-2 py-0.5 rounded text-[10px] font-black font-mono uppercase ${
                 isCritical
-                  ? "bg-red-950 text-red-400 border border-red-800"
+                  ? "bg-red-950 text-red-300 border border-red-700"
                   : isHigh
-                  ? "bg-orange-950 text-orange-400 border border-orange-800"
+                  ? "bg-orange-950 text-orange-300 border border-orange-700"
                   : isModerate
-                  ? "bg-amber-950 text-amber-400 border border-amber-800"
-                  : "bg-emerald-950 text-emerald-400 border border-emerald-800"
+                  ? "bg-amber-950 text-amber-300 border border-amber-700"
+                  : "bg-emerald-950 text-emerald-300 border border-emerald-700"
               }`}
             >
               {riskLevel} RISK ({riskScore.toFixed(1)} / 100)
@@ -139,8 +136,8 @@ export default function EventDetailPanel({
 
             {/* Event Lifecycle Badge */}
             {event && event.status !== "RESOLVED" && (
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-slate-950 text-orange-400 border border-orange-800">
-                Event [{event.status}]
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-black text-orange-400 border border-orange-700">
+                Incident [{event.status}]
               </span>
             )}
           </div>
@@ -150,28 +147,28 @@ export default function EventDetailPanel({
         <div className="flex items-center gap-2 flex-wrap text-xs font-mono">
           <button
             onClick={() => onOpenInvestigate(location.id)}
-            className="bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 text-xs px-2.5 py-1.5 rounded-md transition flex items-center gap-1.5 font-medium"
+            className="bg-white hover:bg-zinc-200 text-black font-black px-3 py-1.5 rounded transition flex items-center gap-1.5 shadow-sm"
           >
-            <ExternalLink className="w-3.5 h-3.5 text-slate-300" />
+            <ExternalLink className="w-3.5 h-3.5" />
             Station 360
           </button>
 
           {onExplainAssessment && (
             <button
               onClick={onExplainAssessment}
-              className="bg-slate-950 hover:bg-slate-850 text-slate-300 border border-slate-800 text-xs px-2.5 py-1.5 rounded-md transition flex items-center gap-1.5 font-medium"
+              className="bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 font-bold px-3 py-1.5 rounded transition flex items-center gap-1.5"
             >
-              <FileText className="w-3.5 h-3.5 text-slate-400" />
-              Explain Assessment
+              <FileText className="w-3.5 h-3.5 text-zinc-400" />
+              Explain
             </button>
           )}
 
           {event && onOpenBroadcast && (
             <button
               onClick={() => onOpenBroadcast(event.id, location.id)}
-              className="bg-amber-950 hover:bg-amber-900 text-amber-300 border border-amber-800 text-xs px-2.5 py-1.5 rounded-md transition flex items-center gap-1.5 font-medium"
+              className="bg-amber-500 hover:bg-amber-400 text-black font-black px-3 py-1.5 rounded transition flex items-center gap-1.5 shadow-sm"
             >
-              <Radio className="w-3.5 h-3.5 text-amber-400" />
+              <Radio className="w-3.5 h-3.5" />
               Broadcast
             </button>
           )}
@@ -179,9 +176,9 @@ export default function EventDetailPanel({
           {event && onOpenSitRep && (
             <button
               onClick={() => onOpenSitRep(event.id)}
-              className="bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs px-2.5 py-1.5 rounded-md transition flex items-center gap-1.5 font-medium"
+              className="bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 font-bold px-3 py-1.5 rounded transition flex items-center gap-1.5"
             >
-              <FileText className="w-3.5 h-3.5 text-slate-400" />
+              <FileText className="w-3.5 h-3.5 text-zinc-400" />
               NDMA SitRep
             </button>
           )}
@@ -190,7 +187,7 @@ export default function EventDetailPanel({
             <button
               onClick={() => onAcknowledgeEvent(event.id)}
               disabled={isAcknowledging}
-              className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs px-2.5 py-1.5 rounded-md transition flex items-center gap-1.5 font-medium disabled:opacity-50"
+              className="bg-zinc-800 hover:bg-zinc-700 text-white font-bold border border-zinc-650 px-3 py-1.5 rounded transition flex items-center gap-1.5 disabled:opacity-50"
             >
               <Check className="w-3.5 h-3.5 text-emerald-400" />
               {isAcknowledging ? "Acking..." : "Acknowledge"}
@@ -199,59 +196,59 @@ export default function EventDetailPanel({
         </div>
       </div>
 
-      {/* Primary Metrics Strip (Data Quality, Signal Agreement, Confidence) */}
+      {/* Primary Metrics Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs font-mono">
-        <div className="bg-slate-950 p-2.5 rounded-md border border-slate-800">
-          <div className="text-[10px] text-slate-500 uppercase">Assessment Confidence</div>
-          <div className="text-sm font-bold text-slate-200 mt-0.5">
+        <div className="bg-black p-2.5 rounded border border-zinc-800">
+          <div className="text-[10px] text-zinc-500 uppercase font-bold">Assessment Confidence</div>
+          <div className="text-sm font-black text-white mt-0.5">
             {(confidenceScore * 100).toFixed(0)}%
           </div>
-          <div className="text-[10px] text-slate-500">Multi-factor density</div>
+          <div className="text-[10px] text-zinc-500">Multi-factor density</div>
         </div>
 
-        <div className="bg-slate-950 p-2.5 rounded-md border border-slate-800">
-          <div className="text-[10px] text-slate-500 uppercase">Signal Agreement</div>
-          <div className="text-sm font-bold text-slate-200 mt-0.5">
+        <div className="bg-black p-2.5 rounded border border-zinc-800">
+          <div className="text-[10px] text-zinc-500 uppercase font-bold">Signal Agreement</div>
+          <div className="text-sm font-black text-white mt-0.5">
             {signalAgreement?.agreement_level || "STRONG"}
           </div>
-          <div className="text-[10px] text-slate-500">
+          <div className="text-[10px] text-zinc-500">
             Score: {((signalAgreement?.agreement_score ?? 0.85) * 100).toFixed(0)}%
           </div>
         </div>
 
-        <div className="bg-slate-950 p-2.5 rounded-md border border-slate-800">
-          <div className="text-[10px] text-slate-500 uppercase">Data Completeness</div>
-          <div className="text-sm font-bold text-slate-200 mt-0.5">
+        <div className="bg-black p-2.5 rounded border border-zinc-800">
+          <div className="text-[10px] text-zinc-500 uppercase font-bold">Data Completeness</div>
+          <div className="text-sm font-black text-white mt-0.5">
             {((dataQuality?.completeness_score ?? 1.0) * 100).toFixed(0)}%
           </div>
-          <div className="text-[10px] text-slate-500">{dataQuality?.status || "HEALTHY"}</div>
+          <div className="text-[10px] text-zinc-500">{dataQuality?.status || "HEALTHY"}</div>
         </div>
 
-        <div className="bg-slate-950 p-2.5 rounded-md border border-slate-800">
-          <div className="text-[10px] text-slate-500 uppercase">Terrain Geometry</div>
-          <div className="text-sm font-bold text-slate-200 mt-0.5">
+        <div className="bg-black p-2.5 rounded border border-zinc-800">
+          <div className="text-[10px] text-zinc-500 uppercase font-bold">Terrain Geometry</div>
+          <div className="text-sm font-black text-white mt-0.5">
             {location.slope_angle}° Slope
           </div>
-          <div className="text-[10px] text-slate-500">Elev: {location.elevation} m</div>
+          <div className="text-[10px] text-zinc-500">Elev: {location.elevation} m</div>
         </div>
       </div>
 
       {/* Normalized Factor Breakdown Table */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-mono uppercase tracking-wider text-slate-400 font-bold flex items-center gap-1.5">
-            <Layers className="w-3.5 h-3.5 text-slate-400" />
+          <h3 className="text-xs font-mono uppercase tracking-wider text-zinc-300 font-black flex items-center gap-1.5">
+            <Layers className="w-3.5 h-3.5 text-zinc-400" />
             Normalized Factor Attribution (0.0 to 1.0)
           </h3>
-          <span className="text-[10px] font-mono text-slate-500">
-            Total Score: <strong className="text-slate-200">{riskScore.toFixed(1)} / 100</strong>
+          <span className="text-[10px] font-mono text-zinc-500">
+            Total Score: <strong className="text-white font-bold">{riskScore.toFixed(1)} / 100</strong>
           </span>
         </div>
 
         {factors.length > 0 ? (
-          <div className="overflow-x-auto rounded-md border border-slate-800">
+          <div className="overflow-x-auto rounded border border-zinc-800 bg-black">
             <table className="w-full text-left text-xs font-mono">
-              <thead className="bg-slate-950 text-slate-400 border-b border-slate-800 text-[10px] uppercase">
+              <thead className="bg-zinc-900 text-zinc-400 border-b border-zinc-800 text-[10px] uppercase font-bold">
                 <tr>
                   <th className="px-3 py-2">Indicator</th>
                   <th className="px-3 py-2">Measured Telemetry</th>
@@ -261,32 +258,32 @@ export default function EventDetailPanel({
                   <th className="px-3 py-2">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60 bg-slate-950/40">
+              <tbody className="divide-y divide-zinc-850">
                 {factors.map((f) => (
-                  <tr key={f.name} className="hover:bg-slate-900/60 transition">
-                    <td className="px-3 py-2 text-slate-200 font-medium capitalize">
+                  <tr key={f.name} className="hover:bg-zinc-900/50 transition">
+                    <td className="px-3 py-2 text-zinc-200 font-bold capitalize">
                       {f.name.replace(/_/g, " ")}
                     </td>
-                    <td className="px-3 py-2 text-slate-400">
+                    <td className="px-3 py-2 text-zinc-400">
                       {typeof f.raw_value === "number" ? f.raw_value.toFixed(1) : String(f.raw_value)}
                     </td>
-                    <td className="px-3 py-2 text-slate-300">
+                    <td className="px-3 py-2 text-zinc-300 font-bold">
                       {(f.normalized_score ?? 0).toFixed(2)}
                     </td>
-                    <td className="px-3 py-2 text-slate-400">{(f.weight * 100).toFixed(0)}%</td>
-                    <td className="px-3 py-2 font-bold text-slate-200">
+                    <td className="px-3 py-2 text-zinc-400">{(f.weight * 100).toFixed(0)}%</td>
+                    <td className="px-3 py-2 font-black text-white">
                       +{f.contribution.toFixed(1)} pts
                     </td>
                     <td className="px-3 py-2">
                       <span
-                        className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
+                        className={`text-[9px] px-1.5 py-0.2 rounded font-black uppercase ${
                           f.status === "CRITICAL"
-                            ? "bg-red-950 text-red-400 border border-red-800"
+                            ? "bg-red-950 text-red-300 border border-red-700"
                             : f.status === "HIGH"
-                            ? "bg-orange-950 text-orange-400 border border-orange-800"
+                            ? "bg-orange-950 text-orange-300 border border-orange-700"
                             : f.status === "MODERATE"
-                            ? "bg-amber-950 text-amber-400 border border-amber-800"
-                            : "bg-emerald-950 text-emerald-400 border border-emerald-800"
+                            ? "bg-amber-950 text-amber-300 border border-amber-700"
+                            : "bg-emerald-950 text-emerald-300 border border-emerald-700"
                         }`}
                       >
                         {f.status}
@@ -298,7 +295,7 @@ export default function EventDetailPanel({
             </table>
           </div>
         ) : (
-          <div className="text-xs text-slate-500 font-mono italic">
+          <div className="text-xs text-zinc-500 font-mono italic">
             No factor breakdown available for this evaluation.
           </div>
         )}
@@ -306,12 +303,12 @@ export default function EventDetailPanel({
 
       {/* Analytical Diagnostic Prose */}
       {latestAssessment?.reason && (
-        <div className="bg-slate-950 border border-slate-800 rounded-md p-3 space-y-1">
-          <div className="text-[10px] font-mono uppercase text-slate-400 font-bold flex items-center gap-1">
+        <div className="bg-black border border-zinc-800 rounded p-3 space-y-1">
+          <div className="text-[10px] font-mono uppercase text-zinc-400 font-black flex items-center gap-1">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
             Deterministic Assessment Synthesis:
           </div>
-          <p className="text-xs text-slate-300 leading-relaxed font-sans">
+          <p className="text-xs text-zinc-300 leading-relaxed font-sans">
             {latestAssessment.reason}
           </p>
         </div>

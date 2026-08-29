@@ -56,24 +56,24 @@ export default function CommandHeader({
   const isLiveMode = dataMode.toUpperCase() === "LIVE";
 
   return (
-    <header className="bg-slate-950 border-b border-slate-800 font-sans">
+    <header className="bg-black border-b border-zinc-800 font-sans text-white">
       {/* Top Header Strip */}
-      <div className="px-4 py-2.5 sm:px-6 flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-850">
+      <div className="px-4 py-3 sm:px-6 flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-zinc-800">
         {/* Left: Identification */}
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-md bg-slate-900 border border-slate-750 flex items-center justify-center text-slate-300 font-bold font-mono text-xs">
+          <div className="w-8 h-8 rounded bg-white text-black flex items-center justify-center font-black font-mono text-xs shadow-sm">
             NDMA
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono tracking-wider text-slate-400 uppercase font-semibold">
+              <span className="text-[10px] font-mono tracking-widest text-zinc-400 uppercase font-bold">
                 SIH26001 • North Eastern Region Landslide Decision Support System
               </span>
-              <span className="bg-slate-900 text-slate-400 border border-slate-800 text-[10px] font-mono px-1.5 py-0.2 rounded">
+              <span className="bg-zinc-900 text-zinc-300 border border-zinc-700 text-[10px] font-mono px-1.5 py-0.2 rounded font-bold">
                 prototype-v0.3
               </span>
             </div>
-            <h1 className="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
+            <h1 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
               Disaster Intelligence Command Center
             </h1>
           </div>
@@ -82,28 +82,28 @@ export default function CommandHeader({
         {/* Right: Operational Controls */}
         <div className="flex items-center gap-2 flex-wrap text-xs font-mono">
           {/* Mode Switcher */}
-          <div className="flex items-center bg-slate-900 p-0.5 rounded-md border border-slate-800 text-xs">
+          <div className="flex items-center bg-zinc-900 p-0.5 rounded border border-zinc-800 text-xs">
             <button
               onClick={() => onToggleDataMode("LIVE")}
-              className={`px-2.5 py-1 rounded transition font-medium flex items-center gap-1.5 ${
+              className={`px-3 py-1 rounded transition font-bold flex items-center gap-1.5 ${
                 isLiveMode
-                  ? "bg-slate-800 text-slate-100 font-bold"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "bg-white text-black shadow-sm"
+                  : "text-zinc-400 hover:text-white"
               }`}
             >
-              <Wifi className="w-3 h-3 text-emerald-400" />
-              LIVE DATA
+              <Wifi className="w-3 h-3 text-emerald-600" />
+              LIVE
             </button>
 
             <button
               onClick={() => onToggleDataMode("SIMULATION")}
-              className={`px-2.5 py-1 rounded transition font-medium flex items-center gap-1.5 ${
+              className={`px-3 py-1 rounded transition font-bold flex items-center gap-1.5 ${
                 !isLiveMode
-                  ? "bg-amber-950 text-amber-300 border border-amber-800 font-bold"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "bg-amber-500 text-black shadow-sm"
+                  : "text-zinc-400 hover:text-white"
               }`}
             >
-              <Sliders className="w-3 h-3 text-amber-400" />
+              <Sliders className="w-3 h-3" />
               SIMULATION
             </button>
           </div>
@@ -113,9 +113,9 @@ export default function CommandHeader({
             <button
               onClick={onTriggerBatchIngest}
               disabled={isIngesting}
-              className="bg-slate-900 hover:bg-slate-850 text-slate-200 border border-slate-850 text-xs px-3 py-1.5 rounded-md transition flex items-center gap-1.5"
+              className="bg-zinc-900 hover:bg-zinc-800 text-white border border-zinc-700 text-xs font-bold px-3 py-1.5 rounded transition flex items-center gap-1.5 disabled:opacity-50"
             >
-              <CloudDownload className={`w-3.5 h-3.5 text-slate-400 ${isIngesting ? "animate-spin" : ""}`} />
+              <CloudDownload className={`w-3.5 h-3.5 ${isIngesting ? "animate-spin" : ""}`} />
               {isIngesting ? "Ingesting..." : "Ingest Telemetry"}
             </button>
           )}
@@ -124,77 +124,77 @@ export default function CommandHeader({
           <button
             onClick={onTriggerEngineRun}
             disabled={isRunningEngine}
-            className="bg-slate-800 hover:bg-slate-750 text-slate-100 border border-slate-700 text-xs font-medium px-3 py-1.5 rounded-md transition flex items-center gap-1.5"
+            className="bg-white hover:bg-zinc-200 text-black text-xs font-black px-3.5 py-1.5 rounded transition flex items-center gap-1.5 shadow-sm disabled:opacity-50"
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-slate-300 ${isRunningEngine ? "animate-spin" : ""}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${isRunningEngine ? "animate-spin" : ""}`} />
             {isRunningEngine ? "Assessing..." : "Run Engine"}
           </button>
 
           {/* Auto Refresh Select */}
-          <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 px-2 py-1.5 rounded-md text-xs">
-            <Clock className="w-3.5 h-3.5 text-slate-500" />
+          <div className="flex items-center gap-1 bg-zinc-900 border border-zinc-800 px-2 py-1.5 rounded text-xs">
+            <Clock className="w-3.5 h-3.5 text-zinc-400" />
             <select
               value={autoRefreshInterval}
               onChange={(e) => onToggleAutoRefresh(Number(e.target.value))}
-              className="bg-transparent text-slate-300 focus:outline-none text-xs cursor-pointer font-mono"
+              className="bg-transparent text-zinc-200 focus:outline-none text-xs cursor-pointer font-mono font-bold"
             >
-              <option value={15} className="bg-slate-950">15s</option>
-              <option value={30} className="bg-slate-950">30s</option>
-              <option value={60} className="bg-slate-950">60s</option>
-              <option value={0} className="bg-slate-950">Manual</option>
+              <option value={15} className="bg-zinc-950 text-white">15s</option>
+              <option value={30} className="bg-zinc-950 text-white">30s</option>
+              <option value={60} className="bg-zinc-950 text-white">60s</option>
+              <option value={0} className="bg-zinc-950 text-white">Manual</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* Understated Mission Control Status Strip (Section 41) */}
-      <div className="bg-slate-900/90 px-4 py-1.5 sm:px-6 flex flex-wrap items-center justify-between gap-3 text-[11px] font-mono border-b border-slate-800 text-slate-400">
+      {/* Understated Mission Control Status Strip */}
+      <div className="bg-zinc-950 px-4 py-1.5 sm:px-6 flex flex-wrap items-center justify-between gap-3 text-[11px] font-mono border-b border-zinc-850 text-zinc-400">
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-1.5">
-            <span className="text-slate-500 uppercase">ENGINE:</span>
-            <span className={`font-bold ${engineOnline ? "text-emerald-400" : "text-red-400"}`}>
+            <span className="text-zinc-500 uppercase font-semibold">ENGINE:</span>
+            <span className={`font-black ${engineOnline ? "text-emerald-400" : "text-red-400"}`}>
               {engineOnline ? "ONLINE" : "OFFLINE"}
             </span>
           </div>
 
-          <span className="text-slate-700">|</span>
+          <span className="text-zinc-700">|</span>
 
           <div className="flex items-center gap-1.5">
-            <span className="text-slate-500 uppercase">DATA:</span>
-            <span className="text-slate-200 font-medium">HEALTHY</span>
+            <span className="text-zinc-500 uppercase font-semibold">DATA:</span>
+            <span className="text-zinc-200 font-bold">HEALTHY</span>
           </div>
 
-          <span className="text-slate-700">|</span>
+          <span className="text-zinc-700">|</span>
 
           <div className="flex items-center gap-1.5">
-            <span className="text-slate-500 uppercase">BHOONIDHI:</span>
-            <span className={`font-bold ${bhoonidhiStatus === 'AVAILABLE' ? 'text-emerald-400' : 'text-slate-400'}`}>
+            <span className="text-zinc-500 uppercase font-semibold">BHOONIDHI:</span>
+            <span className={`font-bold ${bhoonidhiStatus === 'AVAILABLE' ? 'text-emerald-400' : 'text-zinc-400'}`}>
               {bhoonidhiStatus}
             </span>
           </div>
 
-          <span className="text-slate-700">|</span>
+          <span className="text-zinc-700">|</span>
 
           <div className="flex items-center gap-1.5">
-            <span className="text-slate-500 uppercase">FIELD:</span>
-            <span className="text-slate-200 font-bold">{fieldActiveCount} ACTIVE</span>
+            <span className="text-zinc-500 uppercase font-semibold">FIELD:</span>
+            <span className="text-white font-bold">{fieldActiveCount} ACTIVE</span>
           </div>
 
-          <span className="text-slate-700">|</span>
+          <span className="text-zinc-700">|</span>
 
           <div className="flex items-center gap-1.5">
-            <span className="text-slate-500 uppercase">BROADCAST:</span>
-            <span className="text-emerald-400 font-medium">READY</span>
+            <span className="text-zinc-500 uppercase font-semibold">BROADCAST:</span>
+            <span className="text-emerald-400 font-bold">READY</span>
           </div>
         </div>
 
-        <div className="text-slate-500 text-[10px]">
+        <div className="text-zinc-500 text-[10px]">
           Sync Fix: {lastUpdated || "00:00:00 UTC"}
         </div>
       </div>
 
-      {/* Simplified Top Navigation (Section 7: Overview, Stations, Events, Field Operations, Broadcast) */}
-      <div className="px-4 sm:px-6 bg-slate-950 flex items-center justify-between text-xs font-mono">
+      {/* Simplified Top Navigation Tabs */}
+      <div className="px-4 sm:px-6 bg-black flex items-center justify-between text-xs font-mono">
         <nav className="flex items-center gap-1">
           {[
             { id: "overview", label: "Overview", icon: Layers },
@@ -212,9 +212,9 @@ export default function CommandHeader({
                   key={item.id}
                   href={item.href}
                   target="_blank"
-                  className="px-3 py-2 text-slate-400 hover:text-slate-200 hover:bg-slate-900 border-b-2 border-transparent transition flex items-center gap-1.5"
+                  className="px-3.5 py-2 text-zinc-400 hover:text-white hover:bg-zinc-900 border-b-2 border-transparent transition flex items-center gap-1.5 font-bold"
                 >
-                  <Icon className="w-3.5 h-3.5 text-slate-400" />
+                  <Icon className="w-3.5 h-3.5 text-zinc-400" />
                   <span>{item.label}</span>
                 </Link>
               );
@@ -225,9 +225,9 @@ export default function CommandHeader({
                 <button
                   key={item.id}
                   onClick={onOpenBroadcast}
-                  className="px-3 py-2 text-slate-400 hover:text-slate-200 hover:bg-slate-900 border-b-2 border-transparent transition flex items-center gap-1.5"
+                  className="px-3.5 py-2 text-zinc-400 hover:text-white hover:bg-zinc-900 border-b-2 border-transparent transition flex items-center gap-1.5 font-bold"
                 >
-                  <Icon className="w-3.5 h-3.5 text-slate-400" />
+                  <Icon className="w-3.5 h-3.5 text-zinc-400" />
                   <span>{item.label}</span>
                 </button>
               );
@@ -237,10 +237,10 @@ export default function CommandHeader({
               <button
                 key={item.id}
                 onClick={() => onSelectTab && onSelectTab(item.id)}
-                className={`px-3 py-2 border-b-2 font-medium transition flex items-center gap-1.5 ${
+                className={`px-3.5 py-2 border-b-2 font-bold transition flex items-center gap-1.5 ${
                   isActive
-                    ? "border-slate-200 text-slate-100 bg-slate-900"
-                    : "border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/50"
+                    ? "border-white text-white bg-zinc-900"
+                    : "border-transparent text-zinc-400 hover:text-white hover:bg-zinc-900/50"
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />

@@ -59,10 +59,9 @@ export default function BroadcastModal({
         setLoading(true);
         const res = await fetch(`${apiUrl}/api/v1/alerts/${eventId}/payloads`);
         if (res.ok) {
-          const data: MultiChannelPackage = await res.json();
+          const data = await res.json();
           setPkg(data);
-          setMessage(data.sms?.text_en || `EMERGENCY ALERT: Landslide hazard detected at ${data.location_name}. Follow evacuation directives.`);
-          setPriority(data.severity === "CRITICAL" ? "CRITICAL" : "URGENT");
+          setMessage(data.sms?.text_en || data.push?.body || "CRITICAL LANDSLIDE ALERT: Immediate action required.");
         }
       } catch (err) {
         console.error("Failed to load broadcast payloads", err);
@@ -70,8 +69,10 @@ export default function BroadcastModal({
         setLoading(false);
       }
     }
-    loadPayloads();
-  }, [apiUrl, eventId]);
+    if (eventId) {
+      loadPayloads();
+    }
+  }, [eventId, apiUrl]);
 
   const toggleChannel = (ch: string) => {
     setSelectedChannels((prev) =>
@@ -79,8 +80,9 @@ export default function BroadcastModal({
     );
   };
 
-  const handleDispatch = async () => {
-    if (!message.trim()) return;
+  const handleSend = async () => {
+    if (!message.trim() || selectedChannels.length === 0) return;
+
     setIsBroadcasting(true);
     try {
       const res = await fetch(`${apiUrl}/api/v1/alerts/broadcast`, {
@@ -88,58 +90,51 @@ export default function BroadcastModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           event_id: eventId,
-          sender_id: "Central Command Duty Officer",
-          priority: priority,
-          title: `EMERGENCY ALERT: Sector Hazard [${pkg?.location_name || locationId}]`,
-          message: message,
-          target_type: recipients,
+          location_id: locationId,
+          recipients_type: recipients,
+          priority,
+          message_text: message,
           channels: selectedChannels,
         }),
       });
-      if (res.ok) {
-        const result = await res.json();
-        setBroadcastResult(result);
 
-        // Fetch immediate status
-        setTimeout(async () => {
-          try {
-            const stRes = await fetch(`${apiUrl}/api/v1/alerts/broadcasts/${result.id}/status`);
-            if (stRes.ok) {
-              const stData = await stRes.json();
-              setDeliveryStatus(stData);
-            }
-          } catch (e) {
-            console.error("Status fetch err", e);
-          }
-        }, 800);
+      if (res.ok) {
+        const data = await res.json();
+        setBroadcastResult(data);
+        // Fetch status
+        const stRes = await fetch(`${apiUrl}/api/v1/alerts/broadcasts/${data.id}/status`);
+        if (stRes.ok) {
+          const stData = await stRes.json();
+          setDeliveryStatus(stData);
+        }
       }
     } catch (err) {
-      console.error("Broadcast failed", err);
+      console.error("Broadcast dispatch failed", err);
     } finally {
       setIsBroadcasting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-3 sm:p-5">
-      <div className="bg-slate-900 border border-slate-800 rounded-md w-full max-w-xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh] font-sans text-slate-100">
+    <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-3 sm:p-5">
+      <div className="bg-zinc-950 border border-zinc-800 rounded w-full max-w-xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh] font-sans text-white">
         {/* Header */}
-        <div className="bg-slate-950 px-5 py-3.5 border-b border-slate-800 flex items-center justify-between">
+        <div className="bg-black px-5 py-3.5 border-b border-zinc-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Radio className="w-4 h-4 text-amber-400" />
             <div>
-              <h2 className="text-sm font-bold text-slate-100 font-mono">
+              <h2 className="text-sm font-black text-white font-mono uppercase tracking-wider">
                 Multi-Channel Emergency Alert Dispatcher
               </h2>
-              <p className="text-[11px] text-slate-400 font-mono">
-                Target Sector: <span className="text-slate-200">{pkg?.location_name || locationId}</span>
+              <p className="text-[11px] text-zinc-400 font-mono">
+                Target Sector: <span className="text-zinc-200 font-bold">{pkg?.location_name || locationId}</span>
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-200 p-1 rounded hover:bg-slate-800 transition"
+            className="text-zinc-400 hover:text-white p-1 rounded hover:bg-zinc-900 transition"
           >
             <X className="w-4 h-4" />
           </button>
@@ -148,28 +143,28 @@ export default function BroadcastModal({
         {/* Modal Body */}
         <div className="p-5 space-y-4 overflow-y-auto flex-1 text-xs font-sans">
           {loading ? (
-            <div className="py-12 text-center text-slate-500 font-mono">
+            <div className="py-12 text-center text-zinc-500 font-mono">
               Loading broadcast templates...
             </div>
           ) : broadcastResult ? (
-            <div className="bg-slate-950 p-4 rounded-md border border-slate-800 space-y-3 font-mono">
-              <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+            <div className="bg-black p-4 rounded border border-zinc-800 space-y-3 font-mono">
+              <div className="flex items-center gap-2 text-emerald-400 font-black text-sm">
                 <CheckCircle2 className="w-4 h-4" />
                 Broadcast Dispatched ({broadcastResult.id})
               </div>
-              <p className="text-slate-300 text-xs font-sans">{broadcastResult.message}</p>
+              <p className="text-zinc-300 text-xs font-sans">{broadcastResult.message}</p>
 
-              <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-800">
-                <div className="bg-slate-900 p-2.5 rounded border border-slate-800 space-y-1">
-                  <div className="text-slate-300 font-bold">In-App Notifications:</div>
-                  <div className="text-slate-400 text-[11px]">
+              <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-zinc-850">
+                <div className="bg-zinc-900 p-2.5 rounded border border-zinc-800 space-y-1">
+                  <div className="text-zinc-200 font-bold">In-App Notifications:</div>
+                  <div className="text-zinc-400 text-[11px]">
                     Delivered: {deliveryStatus?.in_app_sent ?? 3} | Failed: {deliveryStatus?.in_app_failed ?? 0}
                   </div>
                 </div>
 
-                <div className="bg-slate-900 p-2.5 rounded border border-slate-800 space-y-1">
+                <div className="bg-zinc-900 p-2.5 rounded border border-zinc-800 space-y-1">
                   <div className="text-amber-400 font-bold">SMS (Provider Gateway):</div>
-                  <div className="text-slate-400 text-[11px]">
+                  <div className="text-zinc-400 text-[11px]">
                     Sent: {deliveryStatus?.sms_sent ?? 3} | Pending: {deliveryStatus?.sms_pending ?? 0}
                   </div>
                 </div>
@@ -180,13 +175,13 @@ export default function BroadcastModal({
               {/* Recipients & Priority */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-mono uppercase text-slate-400 font-bold mb-1">
+                  <label className="block text-[10px] font-mono uppercase text-zinc-400 font-bold mb-1">
                     Recipients Group:
                   </label>
                   <select
                     value={recipients}
                     onChange={(e) => setRecipients(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-slate-600 font-mono"
+                    className="w-full bg-black border border-zinc-800 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-zinc-600 font-mono"
                   >
                     <option value="FIELD_TEAMS">All Active Field Rescue Teams</option>
                     <option value="PUBLIC_SECTOR">Public Sector Inhabitants</option>
@@ -195,13 +190,13 @@ export default function BroadcastModal({
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-mono uppercase text-slate-400 font-bold mb-1">
+                  <label className="block text-[10px] font-mono uppercase text-zinc-400 font-bold mb-1">
                     Alert Priority:
                   </label>
                   <select
                     value={priority}
                     onChange={(e) => setPriority(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-slate-600 font-mono"
+                    className="w-full bg-black border border-zinc-800 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-zinc-600 font-mono"
                   >
                     <option value="CRITICAL">CRITICAL (Immediate Evacuation)</option>
                     <option value="URGENT">URGENT (Elevated Hazard Warning)</option>
@@ -212,13 +207,13 @@ export default function BroadcastModal({
 
               {/* Channels Selector */}
               <div>
-                <label className="block text-[10px] font-mono uppercase text-slate-400 font-bold mb-1.5">
+                <label className="block text-[10px] font-mono uppercase text-zinc-400 font-bold mb-1.5">
                   Delivery Channels:
                 </label>
                 <div className="grid grid-cols-2 gap-2 font-mono text-xs">
                   {[
                     { id: "IN_APP", label: "In-App Push (Field App)", icon: Bell },
-                    { id: "SMS", label: "SMS Gateway (Mock/Twilio)", icon: MessageSquare },
+                    { id: "SMS", label: "SMS (Direct Carrier)", icon: MessageSquare },
                   ].map((ch) => {
                     const active = selectedChannels.includes(ch.id);
                     const Icon = ch.icon;
@@ -227,10 +222,10 @@ export default function BroadcastModal({
                         key={ch.id}
                         type="button"
                         onClick={() => toggleChannel(ch.id)}
-                        className={`p-2 rounded border font-medium flex items-center gap-2 transition ${
+                        className={`p-2.5 rounded border text-left flex items-center gap-2 transition ${
                           active
-                            ? "bg-slate-800 border-slate-650 text-slate-100 font-bold"
-                            : "bg-slate-950 border-slate-800 text-slate-500 hover:text-slate-300"
+                            ? "bg-white text-black border-white font-black"
+                            : "bg-black text-zinc-400 border-zinc-850 hover:text-white"
                         }`}
                       >
                         <Icon className="w-3.5 h-3.5" />
@@ -241,22 +236,17 @@ export default function BroadcastModal({
                 </div>
               </div>
 
-              {/* Message Input */}
+              {/* Directive Message Text */}
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-[10px] font-mono uppercase text-slate-400 font-bold">
-                    Directive Message:
-                  </label>
-                  <span className="text-[10px] font-mono text-slate-500">
-                    {message.length} chars
-                  </span>
-                </div>
+                <label className="block text-[10px] font-mono uppercase text-zinc-400 font-bold mb-1 flex items-center justify-between">
+                  <span>Directive Message Body:</span>
+                  <span className="text-zinc-500 font-normal">{message.length} chars</span>
+                </label>
                 <textarea
+                  rows={3}
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  rows={4}
-                  className="w-full bg-slate-950 border border-slate-800 rounded p-2.5 text-xs text-slate-200 focus:outline-none focus:border-slate-600 font-mono"
-                  placeholder="Enter explicit operational warning and evacuation instructions..."
+                  className="w-full bg-black border border-zinc-800 rounded p-2 text-xs text-white font-mono focus:outline-none focus:border-zinc-600 leading-relaxed"
                 />
               </div>
             </>
@@ -264,24 +254,22 @@ export default function BroadcastModal({
         </div>
 
         {/* Footer Actions */}
-        <div className="px-5 py-3 border-t border-slate-800 flex items-center justify-between bg-slate-950 font-mono text-xs">
+        <div className="bg-black px-5 py-3 border-t border-zinc-800 flex items-center justify-between text-xs font-mono">
           <button
-            type="button"
             onClick={onClose}
-            className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded border border-slate-800 transition"
+            className="text-zinc-400 hover:text-white transition font-bold"
           >
             {broadcastResult ? "Close" : "Cancel"}
           </button>
 
           {!broadcastResult && (
             <button
-              type="button"
-              onClick={handleDispatch}
+              onClick={handleSend}
               disabled={isBroadcasting || !message.trim() || selectedChannels.length === 0}
-              className="px-4 py-1.5 bg-amber-600 hover:bg-amber-500 active:bg-amber-700 disabled:opacity-50 text-white rounded font-bold transition flex items-center gap-1.5 shadow-sm"
+              className="bg-white hover:bg-zinc-200 text-black font-black px-4 py-2 rounded transition flex items-center gap-1.5 shadow-sm disabled:opacity-50"
             >
-              <Send className={`w-3.5 h-3.5 ${isBroadcasting ? "animate-spin" : ""}`} />
-              {isBroadcasting ? "Broadcasting..." : "Send Broadcast"}
+              <Send className="w-3.5 h-3.5" />
+              {isBroadcasting ? "Transmitting..." : "Send Emergency Broadcast"}
             </button>
           )}
         </div>

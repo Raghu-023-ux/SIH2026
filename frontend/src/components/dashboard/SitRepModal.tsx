@@ -13,6 +13,7 @@ import {
   Users,
   Compass,
   Clock,
+  X,
 } from "lucide-react";
 
 interface SitRepDetail {
@@ -58,17 +59,28 @@ export default function SitRepModal({ eventId, apiUrl, onClose }: SitRepModalPro
         setLoading(false);
       }
     }
-    loadSitRep();
-  }, [apiUrl, eventId]);
+    if (eventId) {
+      loadSitRep();
+    }
+  }, [eventId, apiUrl]);
 
   const handleCopy = () => {
     if (!sitrep) return;
-    const text = `SITUATION REPORT: ${sitrep.report_number}\n${sitrep.incident_name}\n\nEXECUTIVE SUMMARY:\n${sitrep.executive_summary}\n\n${sitrep.sections
-      .map((s) => `${s.heading}\n${s.content}`)
-      .join("\n\n")}`;
+    const text = `SITUATION REPORT (NDMA / SDRF)
+Report Number: ${sitrep.report_number}
+Incident: ${sitrep.incident_name}
+Sector: ${sitrep.location_name}, ${sitrep.state}
+Operational Period: ${sitrep.operational_period}
+
+EXECUTIVE SUMMARY:
+${sitrep.executive_summary}
+
+${sitrep.sections.map((s) => `--- ${s.heading.toUpperCase()} ---\n${s.content}`).join("\n\n")}
+
+Generated: ${sitrep.generated_at}`;
     navigator.clipboard.writeText(text);
     setCopied(true);
-    setTimeout(() => setCopied(false), 3000);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handlePrint = () => {
@@ -76,98 +88,91 @@ export default function SitRepModal({ eventId, apiUrl, onClose }: SitRepModalPro
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-3 sm:p-5 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh] font-sans">
-        {/* Header */}
-        <div className="bg-slate-950 px-5 py-3.5 border-b border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-orange-600/20 border border-orange-500/40 flex items-center justify-center text-orange-400">
-              <FileText className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-                Operational Situation Report (SitRep)
-              </h2>
-              <p className="text-[11px] text-slate-400 font-mono">
-                {sitrep?.report_number || "Generating..."} • NDMA / SDRF Format
-              </p>
-            </div>
+    <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-3 sm:p-5">
+      <div className="bg-zinc-950 border border-zinc-800 rounded w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] font-sans text-white">
+        {/* Modal Top Action Bar */}
+        <div className="bg-black px-5 py-3 border-b border-zinc-800 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileText className="w-4 h-4 text-zinc-400" />
+            <h2 className="text-sm font-black text-white font-mono uppercase tracking-wider">
+              National Disaster Management Authority (NDMA) SitRep
+            </h2>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 font-mono text-xs">
             <button
               onClick={handleCopy}
-              className="text-xs font-mono px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-lg border border-slate-700 flex items-center gap-1.5 transition"
+              className="px-3 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white rounded transition flex items-center gap-1.5 font-bold"
             >
               {copied ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copied ? "Copied" : "Copy"}</span>
+              {copied ? "Copied" : "Copy"}
             </button>
 
             <button
               onClick={handlePrint}
-              className="text-xs font-mono px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-lg border border-slate-700 flex items-center gap-1.5 transition"
+              className="px-3 py-1 bg-white hover:bg-zinc-200 text-black rounded transition flex items-center gap-1.5 font-black shadow-sm"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Print</span>
+              Print
             </button>
 
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-slate-200 text-xs font-mono px-2.5 py-1.5 bg-slate-900 rounded-lg border border-slate-800"
+              className="text-zinc-400 hover:text-white p-1 rounded hover:bg-zinc-900 transition ml-2"
             >
-              ✕
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
         {/* SitRep Document Content */}
-        <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 text-xs font-sans bg-slate-950/60">
+        <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 text-xs font-sans bg-black">
           {loading ? (
-            <div className="py-16 text-center text-slate-500 font-mono">
+            <div className="py-16 text-center text-zinc-500 font-mono">
               Compiling formal tactical Situation Report...
             </div>
           ) : sitrep ? (
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-lg">
+            <div className="bg-zinc-950 border border-zinc-800 rounded p-5 space-y-4 shadow-lg">
               {/* Document Meta Header */}
-              <div className="border-b border-slate-800 pb-3 space-y-1 font-mono text-[11px]">
-                <div className="flex justify-between items-center text-indigo-400 font-bold">
+              <div className="border-b border-zinc-800 pb-3 space-y-1 font-mono text-[11px]">
+                <div className="flex justify-between items-center text-zinc-400 font-bold">
                   <span>DISASTER MANAGEMENT ADVISORY BRIEFING</span>
                   <span>{sitrep.data_mode} MODE</span>
                 </div>
-                <h1 className="text-base font-black text-slate-100 font-sans">{sitrep.incident_name}</h1>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-slate-400 pt-1 text-[10px]">
-                  <div>Report No: <strong className="text-slate-200">{sitrep.report_number}</strong></div>
-                  <div>Period: <strong className="text-slate-200">{sitrep.operational_period}</strong></div>
-                  <div>Officer: <strong className="text-slate-200">{sitrep.reporting_officer}</strong></div>
+                <h1 className="text-base font-black text-white font-sans">{sitrep.incident_name}</h1>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-zinc-400 pt-1 text-[10px]">
+                  <div>Report No: <strong className="text-white">{sitrep.report_number}</strong></div>
+                  <div>Period: <strong className="text-white">{sitrep.operational_period}</strong></div>
+                  <div>Officer: <strong className="text-white">{sitrep.reporting_officer}</strong></div>
                 </div>
               </div>
 
               {/* Executive Summary */}
-              <div className="space-y-1.5 bg-slate-950 p-3.5 rounded-xl border border-slate-800">
-                <h3 className="text-xs font-bold font-mono text-orange-400 uppercase">
+              <div className="space-y-1.5 bg-black p-3.5 rounded border border-zinc-800">
+                <h3 className="text-xs font-black font-mono text-orange-300 uppercase">
                   Executive Summary
                 </h3>
-                <p className="text-slate-200 leading-relaxed text-xs">{sitrep.executive_summary}</p>
+                <p className="text-zinc-200 leading-relaxed text-xs">{sitrep.executive_summary}</p>
               </div>
 
               {/* Formatted Sections */}
               <div className="space-y-4 pt-2">
                 {sitrep.sections.map((sec, idx) => (
-                  <div key={idx} className="space-y-2 border-b border-slate-800/80 pb-3 last:border-b-0">
-                    <h4 className="text-xs font-bold font-mono text-slate-200 flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                  <div key={idx} className="space-y-2 border-b border-zinc-850 pb-3 last:border-b-0">
+                    <h4 className="text-xs font-black font-mono text-white flex items-center gap-1.5 uppercase">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white" />
                       {sec.heading}
                     </h4>
-                    <p className="text-slate-300 leading-relaxed whitespace-pre-line pl-3 text-[11px]">
+                    <p className="text-zinc-300 leading-relaxed whitespace-pre-line pl-3 text-[11px]">
                       {sec.content}
                     </p>
 
                     {sec.key_metrics && (
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pl-3 pt-1 font-mono text-[10px]">
                         {Object.entries(sec.key_metrics).map(([k, v]) => (
-                          <div key={k} className="bg-slate-950 p-1.5 rounded border border-slate-800 flex justify-between">
-                            <span className="text-slate-400 capitalize">{k.replace(/_/g, " ")}:</span>
-                            <span className="text-indigo-300 font-bold ml-1">{String(v)}</span>
+                          <div key={k} className="bg-black p-1.5 rounded border border-zinc-800 flex justify-between">
+                            <span className="text-zinc-400 capitalize">{k.replace(/_/g, " ")}:</span>
+                            <span className="text-white font-bold ml-1">{String(v)}</span>
                           </div>
                         ))}
                       </div>
@@ -177,7 +182,7 @@ export default function SitRepModal({ eventId, apiUrl, onClose }: SitRepModalPro
               </div>
 
               {/* Document Signoff */}
-              <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-[10px] font-mono text-slate-500">
+              <div className="pt-3 border-t border-zinc-800 flex items-center justify-between text-[10px] font-mono text-zinc-500">
                 <span>Generated by SIH26001 Multi-Signal Intelligence Pipeline</span>
                 <span>Verified by {sitrep.reporting_officer}</span>
               </div>

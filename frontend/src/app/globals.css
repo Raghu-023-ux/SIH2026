@@ -4,8 +4,8 @@
 @tailwind utilities;
 
 :root {
-  --background: #06090e;
-  --foreground: #f1f5f9;
+  --background: #000000;
+  --foreground: #ffffff;
 }
 
 body {
@@ -19,37 +19,37 @@ body {
 
 /* Custom Scrollbar for dense operational tables */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: #09090b;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 3px;
+  background: #27272a;
+  border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: #3f3f46;
 }
 
-/* Leaflet Map Customizations for Dark Command Center */
+/* Leaflet Map Customizations for High Contrast B&W Command Center */
 .leaflet-container {
   width: 100%;
   height: 100%;
-  background-color: #0b1120 !important;
+  background-color: #09090b !important;
   font-family: inherit;
 }
 
 .leaflet-popup-content-wrapper {
-  background: #0f172a !important;
-  color: #f1f5f9 !important;
-  border: 1px solid #334155 !important;
-  border-radius: 0.5rem !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7) !important;
+  background: #09090b !important;
+  color: #ffffff !important;
+  border: 1px solid #27272a !important;
+  border-radius: 0.375rem !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.9) !important;
   padding: 0 !important;
 }
 
@@ -59,26 +59,5 @@ body {
 }
 
 .leaflet-popup-tip {
-  background: #0f172a !important;
-  border: 1px solid #334155 !important;
-}
-
-/* Operational Radar Pulse Animation */
-@keyframes pulse-ring {
-  0% {
-    transform: scale(0.95);
-    opacity: 0.8;
-  }
-  50% {
-    transform: scale(1.6);
-    opacity: 0;
-  }
-  100% {
-    transform: scale(1.6);
-    opacity: 0;
-  }
-}
-
-.animate-pulse-ring {
-  animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+  background: #09090b !important;
 }

@@ -105,30 +105,30 @@ export default function LocationInvestigateModal({
   if (!locationId) return null;
 
   return (
-    <div className="fixed inset-0 z-[2000] bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-6xl max-h-[94vh] shadow-2xl flex flex-col overflow-hidden my-auto font-sans">
+    <div className="fixed inset-0 z-[2000] bg-black/90 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+      <div className="bg-zinc-950 border border-zinc-800 rounded w-full max-w-6xl max-h-[94vh] shadow-2xl flex flex-col overflow-hidden my-auto font-sans text-white">
         
         {/* ====================================================================== */}
         {/* 1. TOP HEADER & STATION IDENTITY */}
         {/* ====================================================================== */}
-        <div className="p-3.5 sm:p-4 border-b border-slate-800 bg-slate-950/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sticky top-0 z-20 backdrop-blur-md">
+        <div className="p-3.5 sm:p-4 border-b border-zinc-800 bg-black flex flex-col sm:flex-row sm:items-center justify-between gap-3 sticky top-0 z-20">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center shrink-0">
-              <Mountain className="w-5 h-5 text-indigo-400" />
+            <div className="w-8 h-8 rounded bg-zinc-900 border border-zinc-700 flex items-center justify-center shrink-0">
+              <Mountain className="w-4 h-4 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-indigo-400 font-bold bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-800/50">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 font-bold bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">
                   Station 360 Analytical Investigation
                 </span>
-                <span className="text-[10px] font-mono text-slate-400">
+                <span className="text-[10px] font-mono text-zinc-400">
                   Station ID: {data?.station.id || locationId}
                 </span>
               </div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-100 mt-0.5 flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-black text-white mt-0.5 flex items-center gap-2 font-mono">
                 {data ? data.station.name : "Retrieving Station Telemetry..."}
                 {data && (
-                  <span className="text-xs font-normal text-slate-400">
+                  <span className="text-xs font-normal text-zinc-400">
                     ({data.station.district}, {data.station.state})
                   </span>
                 )}
@@ -138,14 +138,14 @@ export default function LocationInvestigateModal({
 
           <div className="flex items-center gap-2 self-end sm:self-center">
             {data && (
-              <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1 rounded-lg text-xs font-mono">
+              <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 px-3 py-1 rounded text-xs font-mono">
                 <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                <span className="text-slate-300">{data.data_mode} DATA</span>
+                <span className="text-white font-bold">{data.data_mode} DATA</span>
               </div>
             )}
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-slate-200 p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 transition"
+              className="text-zinc-400 hover:text-white p-1.5 rounded bg-zinc-900 hover:bg-zinc-800 transition"
               title="Close Workspace"
             >
               <X className="w-5 h-5" />
@@ -157,59 +157,59 @@ export default function LocationInvestigateModal({
         {/* 2. STATS KPI STRIP */}
         {/* ====================================================================== */}
         {data && (
-          <div className="bg-slate-950/90 px-4 py-2.5 border-b border-slate-800 grid grid-cols-2 md:grid-cols-5 gap-2.5 text-xs">
+          <div className="bg-black px-4 py-2.5 border-b border-zinc-800 grid grid-cols-2 md:grid-cols-5 gap-2.5 text-xs">
             <div>
-              <div className="text-[10px] font-mono uppercase text-slate-500">Coordinates &amp; Elev</div>
-              <div className="font-mono text-slate-200 font-medium mt-0.5 text-xs">
+              <div className="text-[10px] font-mono uppercase text-zinc-500 font-bold">Coordinates &amp; Elev</div>
+              <div className="font-mono text-white font-bold mt-0.5 text-xs">
                 {data.station.latitude.toFixed(4)}°N, {data.station.longitude.toFixed(4)}°E
               </div>
-              <div className="text-[10px] text-slate-400 font-mono">{(data.station.elevation_m ?? 1200).toFixed(0)}m elevation</div>
+              <div className="text-[10px] text-zinc-400 font-mono">{(data.station.elevation_m ?? 1200).toFixed(0)}m elevation</div>
             </div>
 
             <div>
-              <div className="text-[10px] font-mono uppercase text-slate-500">Prototype Risk Index</div>
+              <div className="text-[10px] font-mono uppercase text-zinc-500 font-bold">Prototype Risk Index</div>
               <div className="flex items-center gap-1.5 mt-0.5">
-                <span className={`px-2 py-0.2 rounded font-bold font-mono text-[11px] ${
-                  data.current_assessment.risk_level === 'CRITICAL' ? 'bg-red-500/20 text-red-400 border border-red-500/40' :
-                  data.current_assessment.risk_level === 'HIGH' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' :
-                  data.current_assessment.risk_level === 'MODERATE' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/40' :
-                  'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                <span className={`px-2 py-0.2 rounded font-black font-mono text-[11px] ${
+                  data.current_assessment.risk_level === 'CRITICAL' ? 'bg-red-950 text-red-300 border border-red-700' :
+                  data.current_assessment.risk_level === 'HIGH' ? 'bg-orange-950 text-orange-300 border border-orange-700' :
+                  data.current_assessment.risk_level === 'MODERATE' ? 'bg-amber-950 text-amber-300 border border-amber-700' :
+                  'bg-emerald-950 text-emerald-300 border border-emerald-700'
                 }`}>
                   {data.current_assessment.risk_level}
                 </span>
-                <span className="font-bold text-slate-100 font-mono text-sm">
-                  {data.current_assessment.risk_score.toFixed(1)} <span className="text-slate-500 text-xs font-normal">/ 100</span>
+                <span className="font-black text-white font-mono text-sm">
+                  {data.current_assessment.risk_score.toFixed(1)} <span className="text-zinc-500 text-xs font-normal">/ 100</span>
                 </span>
               </div>
             </div>
 
             <div>
-              <div className="text-[10px] font-mono uppercase text-slate-500">Risk Trajectory</div>
-              <div className="font-mono font-medium text-slate-200 mt-0.5 flex items-center gap-1">
+              <div className="text-[10px] font-mono uppercase text-zinc-500 font-bold">Risk Trajectory</div>
+              <div className="font-mono font-bold text-white mt-0.5 flex items-center gap-1">
                 {data.risk_trajectory.direction.includes('INCREASING') ? (
-                  <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
+                  <TrendingUp className="w-3.5 h-3.5 text-red-400" />
                 ) : data.risk_trajectory.direction.includes('DECREASING') ? (
                   <TrendingDown className="w-3.5 h-3.5 text-emerald-400" />
                 ) : (
-                  <Minus className="w-3.5 h-3.5 text-slate-400" />
+                  <Minus className="w-3.5 h-3.5 text-zinc-400" />
                 )}
                 <span>{data.risk_trajectory.direction}</span>
               </div>
             </div>
 
             <div>
-              <div className="text-[10px] font-mono uppercase text-slate-500">Signal Agreement</div>
-              <div className="font-mono font-medium text-indigo-300 mt-0.5">
+              <div className="text-[10px] font-mono uppercase text-zinc-500 font-bold">Signal Agreement</div>
+              <div className="font-mono font-bold text-white mt-0.5">
                 {data.hydrometeorological_state.signal_agreement_label}
               </div>
             </div>
 
             <div>
-              <div className="text-[10px] font-mono uppercase text-slate-500">Slope Gradient &amp; Susc</div>
-              <div className="font-mono text-slate-200 font-medium mt-0.5">
+              <div className="text-[10px] font-mono uppercase text-zinc-500 font-bold">Slope Gradient &amp; Susc</div>
+              <div className="font-mono text-white font-bold mt-0.5">
                 {(data.terrain.slope_angle_deg ?? 30).toFixed(1)}° Slope
               </div>
-              <div className="text-[10px] text-slate-400 font-mono">
+              <div className="text-[10px] text-zinc-400 font-mono">
                 Susc: {data.terrain.historical_susceptibility_rating}
               </div>
             </div>
@@ -219,7 +219,7 @@ export default function LocationInvestigateModal({
         {/* ====================================================================== */}
         {/* 3. SCIENTIFIC WORKSPACE 7 TABS */}
         {/* ====================================================================== */}
-        <div className="bg-slate-950 px-4 border-b border-slate-800 flex items-center gap-1 overflow-x-auto text-xs font-mono scrollbar-none">
+        <div className="bg-black px-4 border-b border-zinc-800 flex items-center gap-1 overflow-x-auto text-xs font-mono scrollbar-none">
           {[
             { id: "overview", label: "1. Overview", icon: Activity },
             { id: "rainfall", label: "2. Rainfall Timeline", icon: CloudRain },
@@ -235,10 +235,10 @@ export default function LocationInvestigateModal({
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as TabType)}
-                className={`px-3 py-2.5 border-b-2 font-medium flex items-center gap-1.5 transition whitespace-nowrap ${
+                className={`px-3 py-2.5 border-b-2 font-bold flex items-center gap-1.5 transition whitespace-nowrap ${
                   active
-                    ? "border-indigo-500 text-indigo-300 bg-slate-900/60"
-                    : "border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/30"
+                    ? "border-white text-white bg-zinc-900"
+                    : "border-transparent text-zinc-400 hover:text-white hover:bg-zinc-900/50"
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -251,7 +251,7 @@ export default function LocationInvestigateModal({
         {/* ====================================================================== */}
         {/* 4. TAB CONTENT PANELS */}
         {/* ====================================================================== */}
-        <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-4 text-xs font-sans">
+        <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-4 text-xs font-sans bg-zinc-950">
           {loading ? (
             <div className="py-20 flex flex-col items-center justify-center gap-2 text-slate-400 font-mono">
               <Loader2 className="w-6 h-6 animate-spin text-indigo-400" />

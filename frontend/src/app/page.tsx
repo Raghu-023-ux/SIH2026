@@ -320,7 +320,7 @@ export default function CommandCenter() {
     null;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-black text-white flex flex-col font-sans">
       {/* 1. Header with Mode Switcher & Top-Level Navigation */}
       <CommandHeader
         engineOnline={engineOnline}
@@ -368,10 +368,10 @@ export default function CommandCenter() {
               {/* GIS Tactical Risk Map */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs font-mono px-1">
-                  <span className="text-slate-400 font-bold uppercase tracking-wider">
+                  <span className="text-zinc-400 font-bold uppercase tracking-wider">
                     Geographical Risk Distribution (NER Corridor)
                   </span>
-                  <span className="text-slate-500 font-normal">Click marker to focus station telemetry</span>
+                  <span className="text-zinc-500 font-normal">Click marker to focus station telemetry</span>
                 </div>
                 <RiskMap
                   locations={locations}
@@ -428,10 +428,10 @@ export default function CommandCenter() {
               />
 
               {/* Decision Support Compliance Notice */}
-              <div className="p-3 bg-slate-900 border border-slate-800 rounded-md text-[11px] text-slate-400 leading-relaxed flex items-start gap-2.5 font-sans">
-                <Info className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
+              <div className="p-3 bg-zinc-950 border border-zinc-800 rounded text-[11px] text-zinc-400 leading-relaxed flex items-start gap-2.5 font-sans">
+                <Info className="w-4 h-4 text-zinc-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <strong className="text-slate-200 font-mono">Prototype Decision Support:</strong> Platform operating in <span className="font-mono font-bold text-slate-200">{dataMode}</span> mode. Hydro-meteorological thresholds and satellite metadata act as contextual decision support and do not replace official disaster management authorities.
+                  <strong className="text-white font-mono">Prototype Decision Support:</strong> Platform operating in <span className="font-mono font-bold text-white">{dataMode}</span> mode. Hydro-meteorological thresholds and satellite metadata act as contextual decision support and do not replace official disaster management authorities.
                 </div>
               </div>
             </div>
@@ -441,13 +441,13 @@ export default function CommandCenter() {
         {/* Dynamic Nav View: STATIONS */}
         {activeNavTab === "stations" && (
           <div className="space-y-4">
-            <div className="bg-slate-900 border border-slate-800 rounded-md p-4 space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="bg-zinc-950 border border-zinc-800 rounded p-4 space-y-3">
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
                 <div>
-                  <h2 className="text-sm font-bold font-mono text-slate-100 uppercase">
+                  <h2 className="text-sm font-black font-mono text-white uppercase tracking-wider">
                     All Monitored Telemetry Stations ({locations.length})
                   </h2>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-zinc-400">
                     Continuous environmental monitoring stations across the North Eastern Region corridor.
                   </p>
                 </div>
@@ -457,38 +457,38 @@ export default function CommandCenter() {
                 {locations.map((loc) => (
                   <div
                     key={loc.id}
-                    className="bg-slate-950 border border-slate-800 rounded-md p-3 space-y-2 hover:border-slate-700 transition"
+                    className="bg-black border border-zinc-800 rounded p-3 space-y-2 hover:border-zinc-700 transition"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-200 font-mono text-xs">{loc.name}</span>
+                      <span className="font-black text-white font-mono text-xs">{loc.name}</span>
                       <span
-                        className={`text-[9px] px-1.5 py-0.2 rounded font-bold font-mono uppercase ${
+                        className={`text-[9px] px-1.5 py-0.2 rounded font-black font-mono uppercase ${
                           loc.risk_level === "CRITICAL"
-                            ? "bg-red-950 text-red-400 border border-red-800"
+                            ? "bg-red-950 text-red-300 border border-red-700"
                             : loc.risk_level === "HIGH"
-                            ? "bg-orange-950 text-orange-400 border border-orange-800"
+                            ? "bg-orange-950 text-orange-300 border border-orange-700"
                             : loc.risk_level === "MODERATE"
-                            ? "bg-amber-950 text-amber-400 border border-amber-800"
-                            : "bg-emerald-950 text-emerald-400 border border-emerald-800"
+                            ? "bg-amber-950 text-amber-300 border border-amber-700"
+                            : "bg-emerald-950 text-emerald-300 border border-emerald-700"
                         }`}
                       >
                         {loc.risk_level} ({loc.risk_score.toFixed(1)})
                       </span>
                     </div>
 
-                    <div className="text-[11px] text-slate-400 font-mono space-y-0.5">
+                    <div className="text-[11px] text-zinc-400 font-mono space-y-0.5">
                       <div>Location: {loc.district}, {loc.state}</div>
                       <div>Coordinates: {loc.latitude.toFixed(3)}°N, {loc.longitude.toFixed(3)}°E</div>
                       <div>Elevation: {loc.elevation} m | Slope: {loc.slope_angle}°</div>
                     </div>
 
-                    <div className="pt-2 border-t border-slate-850 flex items-center justify-between text-xs font-mono">
+                    <div className="pt-2 border-t border-zinc-850 flex items-center justify-between text-xs font-mono">
                       <button
                         onClick={() => {
                           setSelectedLocationId(loc.id);
                           setInvestigateLocationId(loc.id);
                         }}
-                        className="text-slate-300 hover:text-slate-100 font-medium transition"
+                        className="text-white hover:text-zinc-300 font-bold transition flex items-center gap-1"
                       >
                         Investigate 360 &rarr;
                       </button>
@@ -498,7 +498,7 @@ export default function CommandCenter() {
                           setSelectedLocationId(loc.id);
                           setActiveNavTab("overview");
                         }}
-                        className="text-slate-500 hover:text-slate-300 transition"
+                        className="text-zinc-500 hover:text-zinc-300 transition"
                       >
                         Focus On Map
                       </button>
@@ -537,8 +537,7 @@ export default function CommandCenter() {
       {explainModalLocationId && (
         <AssessmentExplanationModal
           locationId={explainModalLocationId}
-          locationName={locations.find((l) => l.id === explainModalLocationId)?.name || null}
-          eventId={activeSelectedEvent?.id || null}
+          locationName={locations.find((l) => l.id === explainModalLocationId)?.name || undefined}
           apiUrl={API_URL}
           onClose={() => setExplainModalLocationId(null)}
         />
@@ -564,7 +563,7 @@ export default function CommandCenter() {
       )}
 
       {/* 7. Understated Footer */}
-      <footer className="border-t border-slate-900 px-5 py-2 text-center text-[10px] text-slate-600 font-mono">
+      <footer className="border-t border-zinc-900 px-5 py-2 text-center text-[10px] text-zinc-600 font-mono">
         SIH 2026 Problem Statement SIH26001 | Central Disaster Intelligence Command Center &amp; Field Rescue Network
       </footer>
     </div>
