@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     WEATHER_BACKOFF_FACTOR: float = 0.5
     WEATHER_CACHE_TTL_SECONDS: int = 600  # 10 minutes cache
 
+    # --- Earth Observation & Bhoonidhi (ISRO / NRSC) Configuration ---
+    BHOONIDHI_API_URL: str = "https://bhoonidhi.nrsc.gov.in/api"
+    BHOONIDHI_USER_ID: Optional[str] = None
+    BHOONIDHI_PASSWORD: Optional[str] = None
+    BHOONIDHI_PROVIDER_MODE: str = "MOCK"  # "LIVE" or "MOCK"
+    BHOONIDHI_CACHE_TTL_SECONDS: int = 1800  # 30 minutes cache for satellite catalogue searches
+
     # Data Freshness Thresholds (Minutes)
     DATA_FRESHNESS_WEATHER_MINUTES: int = 60
     DATA_FRESHNESS_SOIL_MOISTURE_MINUTES: int = 180

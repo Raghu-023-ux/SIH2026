@@ -14,6 +14,7 @@ from backend.app.api.v1.endpoints import (
     public,
     alerts,
     analytics,
+    earth_observation,
 )
 
 api_router = APIRouter()
@@ -32,3 +33,4 @@ api_router.include_router(field.router, prefix="/field", tags=["Field Operations
 api_router.include_router(public.router, prefix="/public", tags=["Public Disaster Alerts & Safety"])
 api_router.include_router(alerts.router, prefix="/alerts", tags=["CAP Feeds, SitReps & Multi-Channel Alerting"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["Historical Analytics, Playback & Calibration"])
+api_router.include_router(earth_observation.router, prefix="/earth-observation", tags=["Earth Observation & Bhoonidhi"])

@@ -43,6 +43,8 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def init_db():
     """Initializes the database schema."""
     logger.info("Initializing database tables...")
+    # Import all models to register with Base.metadata
+    from backend.app.models import location, weather, risk, event, history, field, alerting, earth_observation
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database initialized successfully.")
