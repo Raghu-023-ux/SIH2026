@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     PROJECT_NAME: str = "SIH26001 - Disaster Intelligence Engine (NER Landslide)"
     VERSION: str = "0.3.0"
-    ENGINE_VERSION: str = "prototype-v0.2"
+    ENGINE_VERSION: str = "prototype-v0.3"
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: str = "development"
     LOG_LEVEL: str = "INFO"

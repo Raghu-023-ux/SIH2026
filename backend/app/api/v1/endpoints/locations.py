@@ -284,6 +284,15 @@ async def investigate_location(location_id: str, db: AsyncSession = Depends(get_
     )
 
 
+from backend.app.schemas.scientific import (
+    ScientificStationInvestigationResponse,
+    RainfallAnalysisPackage,
+    SoilMoistureAnalysisPackage,
+    TimelineSeriesPoint,
+    CanonicalAssessmentObject,
+)
+
+
 @router.get("/{location_id}/scientific-analysis", response_model=ScientificStationInvestigationResponse)
 async def get_scientific_station_investigation(
     location_id: str,
@@ -291,17 +300,34 @@ async def get_scientific_station_investigation(
 ):
     """
     Comprehensive scientific hydro-meteorological, rainfall accumulation,
-    soil moisture profile, intensity-duration, and evidence attribution workspace.
+    soil moisture profile, intensity-duration, triggers/conditioning separation,
+    uncertainty analysis, and data quality matrix.
     """
-    location = await LocationService.get_location_by_id(db, location_id)
-    if not location:
+    payload = await scientific_indicators_service.build_investigation_response(db, location_id)
+    if not payload:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Location with ID '{location_id}' not found."
         )
-
-    payload = await scientific_indicators_service.build_scientific_investigation(db, location)
     return payload
+
+
+@router.get("/{location_id}/canonical-assessment", response_model=CanonicalAssessmentObject)
+async def get_canonical_engine_assessment(
+    location_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Canonical Core Engine Assessment Object stamped with engine version prototype-v0.3.
+    Standardized payload consumed downstream by expert command, field ops, alerts, and AI agents.
+    """
+    canonical = await scientific_indicators_service.generate_canonical_assessment(db, location_id)
+    if not canonical:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Location with ID '{location_id}' not found."
+        )
+    return canonical
 
 
 @router.get("/{location_id}/rainfall-analysis", response_model=RainfallAnalysisPackage)
@@ -337,7 +363,7 @@ async def get_station_soil_analysis(
 
     obs_stmt = select(WeatherObservation).where(WeatherObservation.location_id == location.id).order_by(WeatherObservation.timestamp.asc()).limit(72)
     obs = list((await db.execute(obs_stmt)).scalars().all())
-    return scientific_indicators_service.calculate_soil_moisture_metrics(obs, location)
+    return scientific_indicators_service.calculate_soil_metrics(obs, location)
 
 
 @router.get("/{location_id}/risk-timeline", response_model=List[TimelineSeriesPoint])

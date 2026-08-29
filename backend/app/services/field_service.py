@@ -135,8 +135,9 @@ class FieldOperationsService:
     def format_report_response(report: FieldReport) -> FieldReportResponse:
         storage = get_storage_provider()
         image_list = []
-        if hasattr(report, "images") and report.images:
-            for img in report.images:
+        raw_images = report.__dict__.get("images")
+        if raw_images:
+            for img in raw_images:
                 image_list.append(
                     FieldReportImageResponse(
                         id=img.id,

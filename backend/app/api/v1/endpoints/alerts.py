@@ -93,6 +93,7 @@ async def create_and_dispatch_broadcast(
     across In-App notifications and SMS provider abstraction.
     """
     broadcast = await BroadcastService.create_broadcast(db, req)
+    await db.commit()
     
     # Schedule background notification delivery
     background_tasks.add_task(
