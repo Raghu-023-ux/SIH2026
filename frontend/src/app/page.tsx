@@ -16,12 +16,12 @@ import RiskMap from "@/components/dashboard/RiskMap";
 import ActiveEventsList from "@/components/dashboard/ActiveEventsList";
 import EventDetailPanel from "@/components/dashboard/EventDetailPanel";
 import LocationInvestigateModal from "@/components/dashboard/LocationInvestigateModal";
+import AssessmentExplanationModal from "@/components/dashboard/AssessmentExplanationModal";
 import SimulationPanel from "@/components/dashboard/SimulationPanel";
-import AIInvestigationPanel from "@/components/dashboard/AIInvestigationPanel";
 import FieldOperationsPanel from "@/components/dashboard/FieldOperationsPanel";
 import BroadcastModal from "@/components/dashboard/BroadcastModal";
 import SitRepModal from "@/components/dashboard/SitRepModal";
-import { ShieldCheck, Info, Server, Activity, Database, CheckCircle2, Radio } from "lucide-react";
+import { ShieldCheck, Info, Server, Activity, Database, CheckCircle2, Radio, MapPin, Layers, Sliders } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -31,8 +31,12 @@ export default function CommandCenter() {
   const [locations, setLocations] = useState<LocationMapItem[]>([]);
   const [events, setEvents] = useState<DisasterEventItem[]>([]);
   const [providers, setProviders] = useState<ProviderHealthItem[]>([]);
+  const [bhoonidhiStatus, setBhoonidhiStatus] = useState<string>("NOT_CONFIGURED");
   const [dataMode, setDataMode] = useState<string>("LIVE");
   const [fieldSummary, setFieldSummary] = useState<any>(null);
+
+  // Navigation tab state (Overview, Stations, Events)
+  const [activeNavTab, setActiveNavTab] = useState<string>("overview");
 
   // Selection state
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
@@ -44,14 +48,14 @@ export default function CommandCenter() {
 
   // Modal & Engine state
   const [investigateLocationId, setInvestigateLocationId] = useState<string | null>(null);
+  const [explainModalLocationId, setExplainModalLocationId] = useState<string | null>(null);
   const [engineOnline, setEngineOnline] = useState<boolean>(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [isRunningEngine, setIsRunningEngine] = useState<boolean>(false);
   const [isIngesting, setIsIngesting] = useState<boolean>(false);
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
   const [isAcknowledging, setIsAcknowledging] = useState<boolean>(false);
-  const [autoRefreshInterval, setAutoRefreshInterval] = useState<number>(30); // 30s auto-refresh
-  const [activeAIQuestion, setActiveAIQuestion] = useState<string | null>(null);
+  const [autoRefreshInterval, setAutoRefreshInterval] = useState<number>(30);
   const [broadcastTarget, setBroadcastTarget] = useState<{ eventId: string; locationId: string } | null>(null);
   const [sitrepEventId, setSitrepEventId] = useState<string | null>(null);
 
@@ -119,12 +123,18 @@ export default function CommandCenter() {
         setEvents(evData);
       }
 
-      // 4. Fetch System Provider Health
+      // 4. Fetch System Provider Health & Bhoonidhi Status
       const sysRes = await fetch(`${API_URL}/api/v1/system/data-sources`);
       if (sysRes.ok) {
         const sysData = await sysRes.json();
         setProviders(sysData.providers || []);
         setDataMode(sysData.data_mode || "LIVE");
+      }
+
+      const eoRes = await fetch(`${API_URL}/api/v1/earth-observation/status`);
+      if (eoRes.ok) {
+        const eoData = await eoRes.json();
+        setBhoonidhiStatus(eoData.status || "NOT_CONFIGURED");
       }
 
       // 5. Fetch Field Operations Summary
@@ -137,10 +147,10 @@ export default function CommandCenter() {
       // Format sync time
       const now = new Date();
       setLastUpdated(
-        `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now
-          .getSeconds()
+        `${now.getUTCHours().toString().padStart(2, "0")}:${now.getUTCMinutes().toString().padStart(2, "0")}:${now
+          .getUTCSeconds()
           .toString()
-          .padStart(2, "0")}`
+          .padStart(2, "0")} UTC`
       );
 
       // Auto-select active or critical station if none selected
@@ -197,7 +207,7 @@ export default function CommandCenter() {
     }
   };
 
-  // Trigger Batch Live Ingestion across all stations
+  // Trigger Batch Ingest across all stations
   const handleTriggerBatchIngest = async () => {
     setIsIngesting(true);
     try {
@@ -303,11 +313,6 @@ export default function CommandCenter() {
     }
   };
 
-  // Handle inline Ask AI from other components
-  const handleAskAI = (question: string, agentType?: string) => {
-    setActiveAIQuestion(question);
-  };
-
   const activeSelectedLocation = locations.find((l) => l.id === selectedLocationId) || null;
   const activeSelectedEvent =
     events.find((e) => e.id === selectedEventId) ||
@@ -315,8 +320,8 @@ export default function CommandCenter() {
     null;
 
   return (
-    <div className="min-h-screen bg-[#06090e] text-slate-100 flex flex-col font-sans">
-      {/* 1. Header with Mode Switcher & Ingest */}
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+      {/* 1. Header with Mode Switcher & Top-Level Navigation */}
       <CommandHeader
         engineOnline={engineOnline}
         lastUpdated={lastUpdated}
@@ -329,6 +334,17 @@ export default function CommandCenter() {
         isIngesting={isIngesting}
         autoRefreshInterval={autoRefreshInterval}
         onToggleAutoRefresh={(sec) => setAutoRefreshInterval(sec)}
+        activeTab={activeNavTab}
+        onSelectTab={(tab) => setActiveNavTab(tab)}
+        bhoonidhiStatus={bhoonidhiStatus}
+        fieldActiveCount={fieldSummary?.active_teams ?? 3}
+        onOpenBroadcast={() => {
+          if (activeSelectedEvent && selectedLocationId) {
+            setBroadcastTarget({ eventId: activeSelectedEvent.id, locationId: selectedLocationId });
+          } else if (locations.length > 0) {
+            setBroadcastTarget({ eventId: events[0]?.id || "EV-BROADCAST", locationId: locations[0].id });
+          }
+        }}
       />
 
       {/* 2. Main Dashboard Content */}
@@ -344,135 +360,191 @@ export default function CommandCenter() {
           highestRiskLevel={summary?.highest_risk_level ?? "LOW"}
         />
 
-        {/* Data Sources & Ingestion Health Strip */}
-        <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
-          <div className="flex items-center gap-2 text-slate-400">
-            <Server className="w-4 h-4 text-indigo-400" />
-            <span className="font-bold uppercase text-slate-300">Data Sources &amp; Providers:</span>
-          </div>
-
-          <div className="flex items-center gap-4 flex-wrap">
-            {providers.map((p) => (
-              <div key={p.name} className="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    p.status === "HEALTHY"
-                      ? "bg-emerald-400"
-                      : p.status === "SIMULATED"
-                      ? "bg-amber-400"
-                      : "bg-red-400"
-                  }`}
+        {/* Dynamic Nav View: OVERVIEW */}
+        {activeNavTab === "overview" && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            {/* Left Column (7 cols): Geographical Risk Map + Factor Details + Field Ops */}
+            <div className="lg:col-span-7 space-y-4">
+              {/* GIS Tactical Risk Map */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-mono px-1">
+                  <span className="text-slate-400 font-bold uppercase tracking-wider">
+                    Geographical Risk Distribution (NER Corridor)
+                  </span>
+                  <span className="text-slate-500 font-normal">Click marker to focus station telemetry</span>
+                </div>
+                <RiskMap
+                  locations={locations}
+                  selectedLocationId={selectedLocationId}
+                  onSelectLocation={handleSelectLocation}
+                  onOpenInvestigate={(id) => setInvestigateLocationId(id)}
                 />
-                <span className="text-slate-300 font-medium capitalize">{p.name}:</span>
-                <span className="text-slate-400">{p.status}</span>
-                {p.last_latency_ms && (
-                  <span className="text-[10px] text-slate-500">({p.last_latency_ms.toFixed(0)}ms)</span>
-                )}
               </div>
-            ))}
-          </div>
 
-          <div className="text-[11px] text-slate-500 flex items-center gap-1">
-            <Database className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Cache: In-Memory TTL (600s)</span>
-          </div>
-        </div>
-
-        {/* Core Tactical Grid: Map & Details on Left, AI Investigation, Events & Field Operations on Right */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          {/* Left Column: Geographical Risk Map + Factor Details + Field Ops (7 cols) */}
-          <div className="lg:col-span-7 space-y-4">
-            {/* GIS Tactical Risk Map */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs font-mono px-1">
-                <span className="text-slate-400 font-bold uppercase tracking-wider">
-                  Geographical Risk Distribution (NER Corridor)
-                </span>
-                <span className="text-slate-500 font-normal">Click marker to focus station telemetry</span>
-              </div>
-              <RiskMap
-                locations={locations}
-                selectedLocationId={selectedLocationId}
-                onSelectLocation={handleSelectLocation}
+              {/* Event & Factor Deep Detail Panel */}
+              <EventDetailPanel
+                event={activeSelectedEvent}
+                location={activeSelectedLocation}
+                latestAssessment={latestAssessment}
+                weatherHistory={weatherHistory}
+                riskHistory={riskHistory}
+                timeline={timeline}
+                onAcknowledgeEvent={handleAcknowledgeEvent}
+                isAcknowledging={isAcknowledging}
                 onOpenInvestigate={(id) => setInvestigateLocationId(id)}
+                onExplainAssessment={() => selectedLocationId && setExplainModalLocationId(selectedLocationId)}
+                onOpenBroadcast={(evId, locId) => setBroadcastTarget({ eventId: evId, locationId: locId })}
+                onOpenSitRep={(evId) => setSitrepEventId(evId)}
+              />
+
+              {/* Field Operations & Ground Rescue Intelligence Panel */}
+              <FieldOperationsPanel
+                summary={fieldSummary}
+                apiUrl={API_URL}
+                onRefresh={refreshDashboardData}
               />
             </div>
 
-            {/* Event & Factor Deep Detail Panel */}
-            <EventDetailPanel
-              event={activeSelectedEvent}
-              location={activeSelectedLocation}
-              latestAssessment={latestAssessment}
-              weatherHistory={weatherHistory}
-              riskHistory={riskHistory}
-              timeline={timeline}
-              onAcknowledgeEvent={handleAcknowledgeEvent}
-              isAcknowledging={isAcknowledging}
-              onOpenInvestigate={(id) => setInvestigateLocationId(id)}
-              onAskAI={handleAskAI}
-              onOpenBroadcast={(evId, locId) => setBroadcastTarget({ eventId: evId, locationId: locId })}
-              onOpenSitRep={(evId) => setSitrepEventId(evId)}
-            />
+            {/* Right Column (5 cols): Active Event Queue + Simulation Console */}
+            <div className="lg:col-span-5 space-y-4">
+              {/* Active Event Queue */}
+              <ActiveEventsList
+                events={events}
+                locations={locations}
+                selectedEventId={activeSelectedEvent?.id || null}
+                onSelectEvent={handleSelectEvent}
+              />
 
-            {/* Field Operations & Ground Rescue Intelligence Panel */}
-            <FieldOperationsPanel
-              summary={fieldSummary}
-              apiUrl={API_URL}
-              onRefresh={refreshDashboardData}
-            />
+              {/* Scenario Simulation Console */}
+              <SimulationPanel
+                locations={locations}
+                selectedLocationId={selectedLocationId}
+                onSelectLocation={(id) => {
+                  setSelectedLocationId(id);
+                  loadLocationTelemetry(id);
+                }}
+                onRunSimulation={handleRunSimulation}
+                isSimulating={isSimulating}
+              />
+
+              {/* Decision Support Compliance Notice */}
+              <div className="p-3 bg-slate-900 border border-slate-800 rounded-md text-[11px] text-slate-400 leading-relaxed flex items-start gap-2.5 font-sans">
+                <Info className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-slate-200 font-mono">Prototype Decision Support:</strong> Platform operating in <span className="font-mono font-bold text-slate-200">{dataMode}</span> mode. Hydro-meteorological thresholds and satellite metadata act as contextual decision support and do not replace official disaster management authorities.
+                </div>
+              </div>
+            </div>
           </div>
+        )}
 
-          {/* Right Column: AI Investigation + Active Event Queue + Simulation Console (5 cols) */}
-          <div className="lg:col-span-5 space-y-4">
-            {/* AI Disaster Analyst & Investigation Panel */}
-            <AIInvestigationPanel
-              locationId={selectedLocationId}
-              locationName={activeSelectedLocation?.name || null}
-              eventId={activeSelectedEvent?.id || null}
-              apiUrl={API_URL}
-              activeQuestion={activeAIQuestion}
-              onQuestionResolved={() => setActiveAIQuestion(null)}
-            />
+        {/* Dynamic Nav View: STATIONS */}
+        {activeNavTab === "stations" && (
+          <div className="space-y-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-md p-4 space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div>
+                  <h2 className="text-sm font-bold font-mono text-slate-100 uppercase">
+                    All Monitored Telemetry Stations ({locations.length})
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Continuous environmental monitoring stations across the North Eastern Region corridor.
+                  </p>
+                </div>
+              </div>
 
-            {/* Active Event Queue */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {locations.map((loc) => (
+                  <div
+                    key={loc.id}
+                    className="bg-slate-950 border border-slate-800 rounded-md p-3 space-y-2 hover:border-slate-700 transition"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-200 font-mono text-xs">{loc.name}</span>
+                      <span
+                        className={`text-[9px] px-1.5 py-0.2 rounded font-bold font-mono uppercase ${
+                          loc.risk_level === "CRITICAL"
+                            ? "bg-red-950 text-red-400 border border-red-800"
+                            : loc.risk_level === "HIGH"
+                            ? "bg-orange-950 text-orange-400 border border-orange-800"
+                            : loc.risk_level === "MODERATE"
+                            ? "bg-amber-950 text-amber-400 border border-amber-800"
+                            : "bg-emerald-950 text-emerald-400 border border-emerald-800"
+                        }`}
+                      >
+                        {loc.risk_level} ({loc.risk_score.toFixed(1)})
+                      </span>
+                    </div>
+
+                    <div className="text-[11px] text-slate-400 font-mono space-y-0.5">
+                      <div>Location: {loc.district}, {loc.state}</div>
+                      <div>Coordinates: {loc.latitude.toFixed(3)}°N, {loc.longitude.toFixed(3)}°E</div>
+                      <div>Elevation: {loc.elevation} m | Slope: {loc.slope_angle}°</div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-850 flex items-center justify-between text-xs font-mono">
+                      <button
+                        onClick={() => {
+                          setSelectedLocationId(loc.id);
+                          setInvestigateLocationId(loc.id);
+                        }}
+                        className="text-slate-300 hover:text-slate-100 font-medium transition"
+                      >
+                        Investigate 360 &rarr;
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setSelectedLocationId(loc.id);
+                          setActiveNavTab("overview");
+                        }}
+                        className="text-slate-500 hover:text-slate-300 transition"
+                      >
+                        Focus On Map
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Dynamic Nav View: EVENTS */}
+        {activeNavTab === "events" && (
+          <div className="space-y-4">
             <ActiveEventsList
               events={events}
               locations={locations}
               selectedEventId={activeSelectedEvent?.id || null}
-              onSelectEvent={handleSelectEvent}
-            />
-
-            {/* Scenario Simulation Console */}
-            <SimulationPanel
-              locations={locations}
-              selectedLocationId={selectedLocationId}
-              onSelectLocation={(id) => {
-                setSelectedLocationId(id);
-                loadLocationTelemetry(id);
+              onSelectEvent={(evId, locId) => {
+                handleSelectEvent(evId, locId);
+                setActiveNavTab("overview");
               }}
-              onRunSimulation={handleRunSimulation}
-              isSimulating={isSimulating}
             />
-
-            {/* Decision Support Compliance Notice */}
-            <div className="p-3 bg-slate-950/80 border border-slate-800/80 rounded-xl text-[11px] text-slate-400 leading-relaxed flex items-start gap-2.5">
-              <Info className="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <strong className="text-slate-300">Operational Notice:</strong> The platform is currently operating in <strong className="text-indigo-300">{dataMode}</strong> mode. Field reports provide ground-truth context evidence and do not automatically alter the scientific risk assessment model.
-              </div>
-            </div>
           </div>
-        </div>
+        )}
       </main>
 
-      {/* 3. Deep Investigation Modal */}
+      {/* 3. Deep Investigation Modal (Station 360) */}
       <LocationInvestigateModal
         locationId={investigateLocationId}
         apiUrl={API_URL}
         onClose={() => setInvestigateLocationId(null)}
       />
 
-      {/* 4. Multi-Channel Emergency Broadcast Modal */}
+      {/* 4. Assessment Explanation Modal */}
+      {explainModalLocationId && (
+        <AssessmentExplanationModal
+          locationId={explainModalLocationId}
+          locationName={locations.find((l) => l.id === explainModalLocationId)?.name || null}
+          eventId={activeSelectedEvent?.id || null}
+          apiUrl={API_URL}
+          onClose={() => setExplainModalLocationId(null)}
+        />
+      )}
+
+      {/* 5. Multi-Channel Emergency Broadcast Modal */}
       {broadcastTarget && (
         <BroadcastModal
           eventId={broadcastTarget.eventId}
@@ -482,7 +554,7 @@ export default function CommandCenter() {
         />
       )}
 
-      {/* 5. Formal NDMA Situation Report Modal */}
+      {/* 6. Formal NDMA Situation Report Modal */}
       {sitrepEventId && (
         <SitRepModal
           eventId={sitrepEventId}
@@ -491,8 +563,8 @@ export default function CommandCenter() {
         />
       )}
 
-      {/* 6. Footer */}
-      <footer className="border-t border-slate-900 px-5 py-2.5 text-center text-[11px] text-slate-600 font-mono">
+      {/* 7. Understated Footer */}
+      <footer className="border-t border-slate-900 px-5 py-2 text-center text-[10px] text-slate-600 font-mono">
         SIH 2026 Problem Statement SIH26001 | Central Disaster Intelligence Command Center &amp; Field Rescue Network
       </footer>
     </div>

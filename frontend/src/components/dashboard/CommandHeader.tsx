@@ -3,18 +3,16 @@
 import React from "react";
 import {
   Activity,
-  AlertOctagon,
-  CheckCircle2,
-  RefreshCw,
-  Sliders,
-  Shield,
-  Clock,
   Radio,
-  CloudLightning,
-  CloudDownload,
+  Sliders,
   Wifi,
-  Users,
-  ExternalLink,
+  CloudDownload,
+  RefreshCw,
+  Clock,
+  Send,
+  Layers,
+  MapPin,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -30,6 +28,11 @@ interface CommandHeaderProps {
   isIngesting: boolean;
   autoRefreshInterval: number;
   onToggleAutoRefresh: (interval: number) => void;
+  activeTab?: string;
+  onSelectTab?: (tab: string) => void;
+  bhoonidhiStatus?: string;
+  fieldActiveCount?: number;
+  onOpenBroadcast?: () => void;
 }
 
 export default function CommandHeader({
@@ -44,144 +47,208 @@ export default function CommandHeader({
   isIngesting,
   autoRefreshInterval,
   onToggleAutoRefresh,
+  activeTab = "overview",
+  onSelectTab,
+  bhoonidhiStatus = "NOT_CONFIGURED",
+  fieldActiveCount = 3,
+  onOpenBroadcast,
 }: CommandHeaderProps) {
   const isLiveMode = dataMode.toUpperCase() === "LIVE";
 
   return (
-    <header className="bg-slate-900 border-b border-slate-800 px-4 py-3 sm:px-6 shadow-lg">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        {/* Left: Brand / Title */}
+    <header className="bg-slate-950 border-b border-slate-800 font-sans">
+      {/* Top Header Strip */}
+      <div className="px-4 py-2.5 sm:px-6 flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-850">
+        {/* Left: Identification */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 shadow-inner">
-            <CloudLightning className="w-5 h-5" />
+          <div className="w-8 h-8 rounded-md bg-slate-900 border border-slate-750 flex items-center justify-center text-slate-300 font-bold font-mono text-xs">
+            NDMA
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono tracking-widest text-indigo-400 uppercase font-bold">
-                SIH26001 • Landslide Early Warning
+              <span className="text-[10px] font-mono tracking-wider text-slate-400 uppercase font-semibold">
+                SIH26001 • North Eastern Region Landslide Decision Support System
               </span>
-              <span className="bg-indigo-950 text-indigo-300 border border-indigo-800 text-[10px] font-mono px-1.5 py-0.2 rounded font-semibold">
-                NER DSS v0.3
+              <span className="bg-slate-900 text-slate-400 border border-slate-800 text-[10px] font-mono px-1.5 py-0.2 rounded">
+                prototype-v0.3
               </span>
             </div>
-            <h1 className="text-lg sm:text-xl font-black tracking-tight text-slate-100 flex items-center gap-2">
+            <h1 className="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
               Disaster Intelligence Command Center
             </h1>
           </div>
         </div>
 
-        {/* Center: Multi-Layer Portal Links */}
-        <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs font-mono">
-          <span className="px-2 py-1 bg-slate-900 text-indigo-300 font-bold rounded">
-            HQ Command
-          </span>
-
-          <Link
-            href="/field"
-            target="_blank"
-            className="px-2 py-1 text-slate-400 hover:text-slate-200 hover:bg-slate-900 rounded transition flex items-center gap-1"
-          >
-            <Radio className="w-3 h-3 text-orange-400" />
-            <span>Field Units</span>
-          </Link>
-
-          <Link
-            href="/public"
-            target="_blank"
-            className="px-2 py-1 text-slate-400 hover:text-slate-200 hover:bg-slate-900 rounded transition flex items-center gap-1"
-          >
-            <Shield className="w-3 h-3 text-emerald-400" />
-            <span>Public Safety</span>
-          </Link>
-
-          <Link
-            href="/analytics"
-            target="_blank"
-            className="px-2 py-1 text-slate-400 hover:text-slate-200 hover:bg-slate-900 rounded transition flex items-center gap-1"
-          >
-            <Sliders className="w-3 h-3 text-purple-400" />
-            <span>Model Studio</span>
-          </Link>
-        </div>
-
-        {/* Right: Operational Controls & Mode Selector */}
-        <div className="flex items-center gap-2.5 flex-wrap">
-          {/* Live vs Simulation Mode Switcher */}
-          <div className="flex items-center bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-xs font-mono">
+        {/* Right: Operational Controls */}
+        <div className="flex items-center gap-2 flex-wrap text-xs font-mono">
+          {/* Mode Switcher */}
+          <div className="flex items-center bg-slate-900 p-0.5 rounded-md border border-slate-800 text-xs">
             <button
               onClick={() => onToggleDataMode("LIVE")}
-              className={`px-2.5 py-1 rounded-md transition font-bold flex items-center gap-1.5 ${
+              className={`px-2.5 py-1 rounded transition font-medium flex items-center gap-1.5 ${
                 isLiveMode
-                  ? "bg-indigo-600 text-white shadow-sm"
+                  ? "bg-slate-800 text-slate-100 font-bold"
                   : "text-slate-400 hover:text-slate-200"
               }`}
             >
-              <Wifi className="w-3 h-3" />
+              <Wifi className="w-3 h-3 text-emerald-400" />
               LIVE DATA
             </button>
 
             <button
               onClick={() => onToggleDataMode("SIMULATION")}
-              className={`px-2.5 py-1 rounded-md transition font-bold flex items-center gap-1.5 ${
+              className={`px-2.5 py-1 rounded transition font-medium flex items-center gap-1.5 ${
                 !isLiveMode
-                  ? "bg-amber-600 text-white shadow-sm"
+                  ? "bg-amber-950 text-amber-300 border border-amber-800 font-bold"
                   : "text-slate-400 hover:text-slate-200"
               }`}
             >
-              <Sliders className="w-3 h-3" />
+              <Sliders className="w-3 h-3 text-amber-400" />
               SIMULATION
             </button>
           </div>
 
-          {/* Engine Status Indicator */}
-          <div className="flex items-center gap-2 bg-slate-950/90 border border-slate-800 px-3 py-1.5 rounded-lg text-xs font-mono">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                engineOnline ? "bg-emerald-400 animate-pulse shadow-emerald-500/50 shadow-sm" : "bg-red-500"
-              }`}
-            />
-            <span className="text-slate-300 font-medium">
-              {engineOnline ? "ENGINE ONLINE" : "OFFLINE"}
-            </span>
-          </div>
-
-          {/* Ingest Live Feeds Button */}
+          {/* Ingest Button */}
           {isLiveMode && (
             <button
               onClick={onTriggerBatchIngest}
               disabled={isIngesting}
-              className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 shadow-sm font-mono"
+              className="bg-slate-900 hover:bg-slate-850 text-slate-200 border border-slate-850 text-xs px-3 py-1.5 rounded-md transition flex items-center gap-1.5"
             >
-              <CloudDownload className={`w-3.5 h-3.5 ${isIngesting ? "animate-spin" : ""}`} />
-              {isIngesting ? "Ingesting..." : "Ingest Feeds"}
+              <CloudDownload className={`w-3.5 h-3.5 text-slate-400 ${isIngesting ? "animate-spin" : ""}`} />
+              {isIngesting ? "Ingesting..." : "Ingest Telemetry"}
             </button>
           )}
 
-          {/* Assessment Trigger Button */}
+          {/* Assessment Trigger */}
           <button
             onClick={onTriggerEngineRun}
             disabled={isRunningEngine}
-            className="bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 shadow-md shadow-indigo-950 font-mono"
+            className="bg-slate-800 hover:bg-slate-750 text-slate-100 border border-slate-700 text-xs font-medium px-3 py-1.5 rounded-md transition flex items-center gap-1.5"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isRunningEngine ? "animate-spin" : ""}`} />
-            {isRunningEngine ? "Assessing..." : "Run Assessment"}
+            <RefreshCw className={`w-3.5 h-3.5 text-slate-300 ${isRunningEngine ? "animate-spin" : ""}`} />
+            {isRunningEngine ? "Assessing..." : "Run Engine"}
           </button>
 
           {/* Auto Refresh Select */}
-          <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 px-2 py-1.5 rounded-lg text-xs font-mono">
-            <Clock className="w-3.5 h-3.5 text-slate-400" />
+          <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 px-2 py-1.5 rounded-md text-xs">
+            <Clock className="w-3.5 h-3.5 text-slate-500" />
             <select
               value={autoRefreshInterval}
               onChange={(e) => onToggleAutoRefresh(Number(e.target.value))}
               className="bg-transparent text-slate-300 focus:outline-none text-xs cursor-pointer font-mono"
             >
-              <option value={15} className="bg-slate-900">15s</option>
-              <option value={30} className="bg-slate-900">30s</option>
-              <option value={60} className="bg-slate-900">60s</option>
-              <option value={0} className="bg-slate-900">Paused</option>
+              <option value={15} className="bg-slate-950">15s</option>
+              <option value={30} className="bg-slate-950">30s</option>
+              <option value={60} className="bg-slate-950">60s</option>
+              <option value={0} className="bg-slate-950">Manual</option>
             </select>
           </div>
         </div>
+      </div>
+
+      {/* Understated Mission Control Status Strip (Section 41) */}
+      <div className="bg-slate-900/90 px-4 py-1.5 sm:px-6 flex flex-wrap items-center justify-between gap-3 text-[11px] font-mono border-b border-slate-800 text-slate-400">
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 uppercase">ENGINE:</span>
+            <span className={`font-bold ${engineOnline ? "text-emerald-400" : "text-red-400"}`}>
+              {engineOnline ? "ONLINE" : "OFFLINE"}
+            </span>
+          </div>
+
+          <span className="text-slate-700">|</span>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 uppercase">DATA:</span>
+            <span className="text-slate-200 font-medium">HEALTHY</span>
+          </div>
+
+          <span className="text-slate-700">|</span>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 uppercase">BHOONIDHI:</span>
+            <span className={`font-bold ${bhoonidhiStatus === 'AVAILABLE' ? 'text-emerald-400' : 'text-slate-400'}`}>
+              {bhoonidhiStatus}
+            </span>
+          </div>
+
+          <span className="text-slate-700">|</span>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 uppercase">FIELD:</span>
+            <span className="text-slate-200 font-bold">{fieldActiveCount} ACTIVE</span>
+          </div>
+
+          <span className="text-slate-700">|</span>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 uppercase">BROADCAST:</span>
+            <span className="text-emerald-400 font-medium">READY</span>
+          </div>
+        </div>
+
+        <div className="text-slate-500 text-[10px]">
+          Sync Fix: {lastUpdated || "00:00:00 UTC"}
+        </div>
+      </div>
+
+      {/* Simplified Top Navigation (Section 7: Overview, Stations, Events, Field Operations, Broadcast) */}
+      <div className="px-4 sm:px-6 bg-slate-950 flex items-center justify-between text-xs font-mono">
+        <nav className="flex items-center gap-1">
+          {[
+            { id: "overview", label: "Overview", icon: Layers },
+            { id: "stations", label: "Stations", icon: MapPin },
+            { id: "events", label: "Events", icon: AlertTriangle },
+            { id: "field", label: "Field Operations", icon: Radio, isExternal: true, href: "/field" },
+            { id: "broadcast", label: "Broadcast", icon: Send, isAction: true },
+          ].map((item) => {
+            const isActive = activeTab === item.id;
+            const Icon = item.icon;
+
+            if (item.isExternal && item.href) {
+              return (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  target="_blank"
+                  className="px-3 py-2 text-slate-400 hover:text-slate-200 hover:bg-slate-900 border-b-2 border-transparent transition flex items-center gap-1.5"
+                >
+                  <Icon className="w-3.5 h-3.5 text-slate-400" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            }
+
+            if (item.isAction) {
+              return (
+                <button
+                  key={item.id}
+                  onClick={onOpenBroadcast}
+                  className="px-3 py-2 text-slate-400 hover:text-slate-200 hover:bg-slate-900 border-b-2 border-transparent transition flex items-center gap-1.5"
+                >
+                  <Icon className="w-3.5 h-3.5 text-slate-400" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            }
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => onSelectTab && onSelectTab(item.id)}
+                className={`px-3 py-2 border-b-2 font-medium transition flex items-center gap-1.5 ${
+                  isActive
+                    ? "border-slate-200 text-slate-100 bg-slate-900"
+                    : "border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/50"
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
       </div>
     </header>
   );
