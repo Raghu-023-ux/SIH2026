@@ -51,10 +51,12 @@ class FieldReport(Base):
     
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
+    location_accuracy = Column(Float, nullable=True) # in meters
+    location_source = Column(String(32), nullable=False, default="UNKNOWN") # GPS, MANUAL, UNKNOWN
     
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
     
-    # Status: SUBMITTED, ACKNOWLEDGED, UNDER_REVIEW, INCORPORATED, DISMISSED
+    # Status: SUBMITTED, ACKNOWLEDGED, UNDER_REVIEW, REVIEWED, INCORPORATED, DISMISSED
     status = Column(String(32), nullable=False, default="SUBMITTED", index=True)
     reviewed_by = Column(String(128), nullable=True)
     review_notes = Column(Text, nullable=True)
@@ -66,11 +68,27 @@ class FieldReport(Base):
     team = relationship("FieldTeam", back_populates="reports")
     location = relationship("Location")
     event = relationship("DisasterEvent")
+    images = relationship("FieldReportImage", back_populates="report", cascade="all, delete-orphan", lazy="selectin")
 
     __table_args__ = (
         Index("idx_field_rep_loc_time", "location_id", "timestamp"),
         Index("idx_field_rep_event_status", "event_id", "status"),
     )
+
+
+class FieldReportImage(Base):
+    __tablename__ = "field_report_images"
+
+    id = Column(String(64), primary_key=True, default=lambda: str(uuid.uuid4()))
+    report_id = Column(String(64), ForeignKey("field_reports.id", ondelete="CASCADE"), nullable=False, index=True)
+    storage_key = Column(String(255), nullable=False)
+    mime_type = Column(String(64), nullable=False, default="image/jpeg")
+    file_size = Column(Float, nullable=False, default=0.0) # size in bytes
+    uploaded_by = Column(String(128), nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    # Relationships
+    report = relationship("FieldReport", back_populates="images")
 
 
 class AssistanceRequest(Base):

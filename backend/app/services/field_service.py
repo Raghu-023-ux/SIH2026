@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.app.models.field import (
     FieldTeam,
     FieldReport,
+    FieldReportImage,
     AssistanceRequest,
     OperationalMessage,
 )
@@ -17,6 +18,7 @@ from backend.app.models.weather import WeatherObservation
 from backend.app.schemas.field import (
     FieldReportCreate,
     FieldReportUpdate,
+    FieldReportImageResponse,
     AssistanceRequestCreate,
     AssistanceRequestUpdate,
     OperationalMessageCreate,
@@ -30,6 +32,7 @@ from backend.app.schemas.field import (
     AssistanceRequestResponse,
     OperationalMessageResponse,
 )
+from backend.app.services.storage_provider import get_storage_provider
 from backend.app.core.logging import logger
 
 
@@ -129,6 +132,46 @@ class FieldOperationsService:
         return team
 
     @staticmethod
+    def format_report_response(report: FieldReport) -> FieldReportResponse:
+        storage = get_storage_provider()
+        image_list = []
+        if hasattr(report, "images") and report.images:
+            for img in report.images:
+                image_list.append(
+                    FieldReportImageResponse(
+                        id=img.id,
+                        report_id=img.report_id,
+                        storage_key=img.storage_key,
+                        mime_type=img.mime_type,
+                        file_size=img.file_size,
+                        url=storage.get_url(img.storage_key),
+                        uploaded_by=img.uploaded_by,
+                        created_at=img.created_at,
+                    )
+                )
+        return FieldReportResponse(
+            id=report.id,
+            event_id=report.event_id,
+            location_id=report.location_id,
+            team_id=report.team_id,
+            reported_by=report.reported_by,
+            report_type=report.report_type,
+            severity=report.severity,
+            description=report.description,
+            latitude=report.latitude,
+            longitude=report.longitude,
+            location_accuracy=report.location_accuracy,
+            location_source=report.location_source,
+            timestamp=report.timestamp,
+            status=report.status,
+            reviewed_by=report.reviewed_by,
+            review_notes=report.review_notes,
+            images=image_list,
+            created_at=report.created_at,
+            updated_at=report.updated_at,
+        )
+
+    @staticmethod
     async def submit_field_report(session: AsyncSession, report_in: FieldReportCreate) -> FieldReport:
         report = FieldReport(
             event_id=report_in.event_id,
@@ -140,11 +183,29 @@ class FieldOperationsService:
             description=report_in.description,
             latitude=report_in.latitude,
             longitude=report_in.longitude,
+            location_accuracy=report_in.location_accuracy,
+            location_source=report_in.location_source or "UNKNOWN",
             status="SUBMITTED",
             timestamp=datetime.now(timezone.utc)
         )
         session.add(report)
         await session.flush()
+
+        # Handle image attachments if any storage keys passed
+        if report_in.image_storage_keys:
+            for key in report_in.image_storage_keys:
+                if key and key.strip():
+                    img = FieldReportImage(
+                        report_id=report.id,
+                        storage_key=key.strip(),
+                        mime_type="image/jpeg" if (key.endswith(".jpg") or key.endswith(".jpeg")) else "image/png",
+                        file_size=0.0,
+                        uploaded_by=report.reported_by,
+                        created_at=datetime.now(timezone.utc),
+                    )
+                    session.add(img)
+            await session.flush()
+
         logger.info(f"New field report [{report.report_type} - {report.severity}] submitted by {report.reported_by}")
         return report
 
@@ -388,7 +449,7 @@ class FieldOperationsService:
             immediate_conditions=immediate,
             nearby_incidents=nearby_incidents,
             recent_messages=[OperationalMessageResponse.model_validate(m) for m in messages],
-            recent_reports=[FieldReportResponse.model_validate(r) for r in reports]
+            recent_reports=[FieldOperationsService.format_report_response(r) for r in reports]
         )
 
     @staticmethod
@@ -411,7 +472,7 @@ class FieldOperationsService:
             unacknowledged_reports_count=unack_reports,
             active_assistance_requests_count=active_assist,
             teams=[FieldTeamResponse.model_validate(t) for t in teams],
-            recent_reports=[FieldReportResponse.model_validate(r) for r in reports],
+            recent_reports=[FieldOperationsService.format_report_response(r) for r in reports],
             assistance_requests=[AssistanceRequestResponse.model_validate(a) for a in assistance]
         )
 

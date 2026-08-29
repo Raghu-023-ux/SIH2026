@@ -16,6 +16,8 @@ import {
   ChevronUp,
   MapPin,
   ExternalLink,
+  X,
+  Image as ImageIcon,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -29,6 +31,13 @@ interface FieldTeamItem {
   contact_channel?: string | null;
 }
 
+interface FieldReportImageItem {
+  id: string;
+  url: string;
+  mime_type: string;
+  storage_key?: string;
+}
+
 interface FieldReportItem {
   id: string;
   event_id?: string | null;
@@ -40,6 +49,10 @@ interface FieldReportItem {
   description: string;
   timestamp: string;
   status: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  location_accuracy?: number | null;
+  images?: FieldReportImageItem[];
   reviewed_by?: string | null;
 }
 
@@ -81,6 +94,7 @@ export default function FieldOperationsPanel({
   const [directiveText, setDirectiveText] = useState<string>("");
   const [isBroadcasting, setIsBroadcasting] = useState<boolean>(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [selectedImageModal, setSelectedImageModal] = useState<string | null>(null);
 
   // Broadcast Operational Message
   const handleBroadcast = async (e: React.FormEvent) => {
@@ -287,6 +301,36 @@ export default function FieldOperationsPanel({
 
                     <p className="text-slate-300 text-[11px] leading-normal">{rep.description}</p>
 
+                    {/* Image thumbnails */}
+                    {rep.images && rep.images.length > 0 && (
+                      <div className="flex items-center gap-2 pt-1">
+                        {rep.images.map((img) => (
+                          <button
+                            key={img.id}
+                            type="button"
+                            onClick={() => setSelectedImageModal(`${apiUrl}${img.url}`)}
+                            className="group relative rounded-lg overflow-hidden border border-slate-700 hover:border-indigo-400 transition"
+                          >
+                            <img
+                              src={`${apiUrl}${img.url}`}
+                              alt="Evidence"
+                              className="w-12 h-12 object-cover group-hover:scale-105 transition"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {rep.latitude && rep.longitude && (
+                      <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
+                        <MapPin className="w-3 h-3 text-indigo-400" />
+                        <span>
+                          {rep.latitude.toFixed(4)}°N, {rep.longitude.toFixed(4)}°E
+                          {rep.location_accuracy ? ` (±${rep.location_accuracy.toFixed(0)}m)` : ""}
+                        </span>
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between font-mono text-[10px] text-slate-500 pt-1 border-t border-slate-800/60">
                       <span>Reported by: {rep.reported_by}</span>
                       <div className="flex items-center gap-2">
@@ -381,6 +425,35 @@ export default function FieldOperationsPanel({
           </div>
         </div>
       </div>
+
+      {/* Full Resolution Ground Evidence Inspection Modal */}
+      {selectedImageModal && (
+        <div
+          className="fixed inset-0 bg-black/90 z-[3000] flex items-center justify-center p-4 backdrop-blur-md"
+          onClick={() => setSelectedImageModal(null)}
+        >
+          <div className="relative max-w-2xl w-full bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+            <div className="p-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+              <span className="text-xs font-mono font-bold text-slate-200">
+                Ground Evidence Inspection
+              </span>
+              <button
+                onClick={() => setSelectedImageModal(null)}
+                className="bg-slate-800 hover:bg-slate-700 text-white p-1 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-2 flex items-center justify-center bg-black/60">
+              <img
+                src={selectedImageModal}
+                alt="Ground Evidence Full View"
+                className="w-full h-auto max-h-[75vh] object-contain rounded-lg"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

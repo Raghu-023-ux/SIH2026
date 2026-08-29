@@ -34,6 +34,19 @@ class TeamStatusUpdateRequest(BaseModel):
 
 
 # --- Field Report Schemas ---
+class FieldReportImageResponse(BaseModel):
+    id: str
+    report_id: str
+    storage_key: str
+    mime_type: str
+    file_size: float
+    url: Optional[str] = None
+    uploaded_by: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class FieldReportCreate(BaseModel):
     event_id: Optional[str] = None
     location_id: str
@@ -44,10 +57,13 @@ class FieldReportCreate(BaseModel):
     description: str
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    location_accuracy: Optional[float] = None
+    location_source: Optional[str] = "UNKNOWN" # GPS, MANUAL, UNKNOWN
+    image_storage_keys: Optional[List[str]] = Field(default_factory=list)
 
 
 class FieldReportUpdate(BaseModel):
-    status: str = Field(..., description="SUBMITTED, ACKNOWLEDGED, UNDER_REVIEW, INCORPORATED, DISMISSED")
+    status: str = Field(..., description="SUBMITTED, ACKNOWLEDGED, UNDER_REVIEW, REVIEWED, INCORPORATED, DISMISSED")
     reviewed_by: Optional[str] = "Command Duty Officer"
     review_notes: Optional[str] = None
 
@@ -63,10 +79,13 @@ class FieldReportResponse(BaseModel):
     description: str
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    location_accuracy: Optional[float] = None
+    location_source: Optional[str] = "UNKNOWN"
     timestamp: datetime
     status: str
     reviewed_by: Optional[str] = None
     review_notes: Optional[str] = None
+    images: List[FieldReportImageResponse] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 

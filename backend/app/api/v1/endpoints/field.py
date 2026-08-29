@@ -91,6 +91,38 @@ async def update_team_status(
     return FieldTeamResponse.model_validate(updated)
 
 
+from fastapi import UploadFile, File, Response
+from backend.app.services.storage_provider import get_storage_provider
+
+
+@router.post("/upload-image")
+async def upload_field_report_image(
+    file: UploadFile = File(...),
+    uploaded_by: Optional[str] = Query(None, description="Reporter name or callsign")
+):
+    """
+    Securely uploads a field report evidence image (JPEG, PNG, WEBP).
+    Validates MIME type, enforces size limits (10MB), and returns safe storage metadata.
+    """
+    storage = get_storage_provider()
+    content = await file.read()
+    res = await storage.save_file(
+        file_bytes=content,
+        original_filename=file.filename or "report.jpg",
+        content_type=file.content_type or "image/jpeg",
+        uploaded_by=uploaded_by,
+    )
+    return res
+
+
+@router.get("/media/{storage_key}")
+async def get_report_media_file(storage_key: str):
+    """Retrieves securely stored image media for field and citizen reports."""
+    storage = get_storage_provider()
+    file_bytes, mime_type = await storage.get_file(storage_key)
+    return Response(content=file_bytes, media_type=mime_type)
+
+
 @router.get("/reports", response_model=List[FieldReportResponse])
 async def list_field_reports(
     location_id: Optional[str] = None,
@@ -101,7 +133,7 @@ async def list_field_reports(
 ):
     """Retrieves chronological field observations submitted by rescue units."""
     reports = await field_service.get_field_reports(db, location_id, event_id, status, limit)
-    return [FieldReportResponse.model_validate(r) for r in reports]
+    return [FieldOperationsService.format_report_response(r) for r in reports]
 
 
 @router.post("/reports", response_model=FieldReportResponse, status_code=status.HTTP_201_CREATED)
@@ -112,7 +144,7 @@ async def submit_field_report(
     """Submits a structured ground observation report from a field operator."""
     report = await field_service.submit_field_report(db, report_in)
     await db.commit()
-    return FieldReportResponse.model_validate(report)
+    return FieldOperationsService.format_report_response(report)
 
 
 @router.patch("/reports/{report_id}", response_model=FieldReportResponse)
@@ -129,7 +161,7 @@ async def update_report_status(
             detail=f"Field report '{report_id}' not found."
         )
     await db.commit()
-    return FieldReportResponse.model_validate(report)
+    return FieldOperationsService.format_report_response(report)
 
 
 @router.get("/assistance", response_model=List[AssistanceRequestResponse])
