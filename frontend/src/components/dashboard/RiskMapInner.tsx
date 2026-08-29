@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import { LocationMapItem } from "@/components/dashboard/types";
-import { AlertTriangle, Droplets, Mountain, ArrowUpRight, ShieldCheck, Flame } from "lucide-react";
+import { AlertTriangle, Droplets, Mountain, ArrowUpRight, ShieldCheck, Flame, Layers, Globe } from "lucide-react";
 
 interface RiskMapInnerProps {
   locations: LocationMapItem[];
@@ -12,6 +12,33 @@ interface RiskMapInnerProps {
   onSelectLocation: (locationId: string) => void;
   onOpenInvestigate: (locationId: string) => void;
 }
+
+const MAP_LAYERS: Record<string, { name: string; url: string; attribution?: string; maxZoom: number }> = {
+  topo: {
+    name: "Geographical Topo",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Esri Topo",
+    maxZoom: 19,
+  },
+  satellite: {
+    name: "Satellite Imagery",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Esri Satellite",
+    maxZoom: 19,
+  },
+  terrain: {
+    name: "Terrain Elevation",
+    url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+    attribution: "OpenTopoMap",
+    maxZoom: 17,
+  },
+  dark: {
+    name: "Dark Mission",
+    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    attribution: "CartoDB",
+    maxZoom: 19,
+  },
+};
 
 function MapController({ selectedLocation }: { selectedLocation: LocationMapItem | undefined }) {
   const map = useMap();
@@ -99,9 +126,12 @@ export default function RiskMapInner({
   onSelectLocation,
   onOpenInvestigate,
 }: RiskMapInnerProps) {
+  const [activeLayerKey, setActiveLayerKey] = useState<string>("topo");
   const selectedLocation = locations.find((l) => l.id === selectedLocationId);
   const defaultCenter: [number, number] = [26.2006, 92.9376];
   const defaultZoom = 7;
+
+  const currentLayer = MAP_LAYERS[activeLayerKey] || MAP_LAYERS.topo;
 
   return (
     <div className="relative w-full h-[460px] lg:h-[540px] rounded overflow-hidden border border-zinc-800 shadow-xl bg-black">
@@ -113,8 +143,9 @@ export default function RiskMapInner({
         attributionControl={false}
       >
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          maxZoom={19}
+          key={activeLayerKey}
+          url={currentLayer.url}
+          maxZoom={currentLayer.maxZoom}
         />
 
         <MapController selectedLocation={selectedLocation} />
@@ -147,7 +178,7 @@ export default function RiskMapInner({
                   {/* Risk Badge & Score */}
                   <div className="flex items-center justify-between bg-zinc-950 p-2 rounded border border-zinc-800 font-mono">
                     <div>
-                      <div className="text-[10px] text-zinc-400">RISK SCORE</div>
+                      <div className="text-[10px] text-zinc-400 font-bold">RISK SCORE</div>
                       <div className="text-lg font-black text-white">
                         {loc.risk_score.toFixed(1)}
                         <span className="text-[10px] text-zinc-500 font-normal"> / 100</span>
@@ -155,7 +186,7 @@ export default function RiskMapInner({
                     </div>
                     <div className="text-right">
                       <span
-                        className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${
+                        className={`inline-block px-2 py-0.5 rounded text-xs font-black ${
                           loc.risk_level === "CRITICAL"
                             ? "bg-red-950 text-red-300 border border-red-700"
                             : loc.risk_level === "HIGH"
@@ -208,8 +239,29 @@ export default function RiskMapInner({
         })}
       </MapContainer>
 
-      {/* Map Overlay Legend */}
-      <div className="absolute top-3 right-3 z-[1000] bg-black/90 border border-zinc-800 rounded px-3 py-2 text-xs shadow-lg space-y-1.5 font-mono">
+      {/* Top Left: Geographical Layer Switcher */}
+      <div className="absolute top-3 left-3 z-[1000] bg-black/90 border border-zinc-800 rounded p-1 shadow-2xl flex items-center gap-1 font-mono text-[10px]">
+        <div className="px-2 py-1 text-zinc-400 font-bold uppercase flex items-center gap-1 border-r border-zinc-800">
+          <Globe className="w-3 h-3 text-white" />
+          <span className="hidden sm:inline">Map Mode:</span>
+        </div>
+        {Object.entries(MAP_LAYERS).map(([k, v]) => (
+          <button
+            key={k}
+            onClick={() => setActiveLayerKey(k)}
+            className={`px-2.5 py-1 rounded transition font-bold ${
+              activeLayerKey === k
+                ? "bg-white text-black font-black shadow-sm"
+                : "text-zinc-400 hover:text-white hover:bg-zinc-900"
+            }`}
+          >
+            {v.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Top Right: Map Overlay Legend */}
+      <div className="absolute top-3 right-3 z-[1000] bg-black/90 border border-zinc-800 rounded px-3 py-2 text-xs shadow-2xl space-y-1.5 font-mono">
         <div className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
           Risk Severity (NER)
         </div>

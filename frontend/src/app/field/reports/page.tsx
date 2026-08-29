@@ -84,7 +84,7 @@ export default function FieldReportsPage() {
       const payload = {
         event_id: data?.assigned_event?.id,
         location_id: data?.assigned_location?.id || "NER-SIK-GANGTOK-01",
-        team_id: data?.team?.id,
+        team_id: data?.team?.id || "NER-TEAM-ALPHA",
         reported_by: `${data?.team?.team_name || "Rescue Unit"} (${callsign})`,
         report_type: reportType,
         severity: severity,
@@ -110,89 +110,98 @@ export default function FieldReportsPage() {
         await refreshBriefing();
       }
     } catch (err) {
-      console.error("Report submit error", err);
-      alert("Submission failed. Please check connection.");
+      console.error("Failed to submit report", err);
+      alert("Failed to transmit field observation.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const reports = data?.recent_reports || [];
-  const filteredReports = activeFilter === "ALL"
-    ? reports
-    : reports.filter((r) => r.status === activeFilter || r.severity === activeFilter);
+  const filteredReports =
+    activeFilter === "ALL"
+      ? reports
+      : reports.filter((r) => r.report_type === activeFilter || r.severity === activeFilter);
 
   return (
-    <main className="flex-1 p-3 sm:p-4 space-y-3.5">
-      {/* 1. Header & Actions */}
+    <main className="flex-1 p-3 sm:p-4 space-y-3.5 font-sans text-white bg-black">
+      {/* 1. Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-            <FileText className="w-4 h-4 text-indigo-400" />
-            Field &amp; Citizen Reports Log
+          <h2 className="text-sm font-black text-white flex items-center gap-2 font-mono uppercase tracking-wider">
+            <FileText className="w-4 h-4 text-white" />
+            Field Ground Truth Reports
           </h2>
-          <p className="text-[11px] text-slate-400 font-mono">
-            Ground observations submitted in current sector
+          <p className="text-[11px] text-zinc-400 font-mono">
+            Ground observations, geotagged photos, and structural damage reports
           </p>
         </div>
 
         <button
           onClick={() => setShowModal(true)}
-          className="bg-indigo-600 hover:bg-indigo-500 text-white font-mono font-bold text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-md shadow-indigo-950 transition"
+          className="bg-white hover:bg-zinc-200 text-black font-mono font-black text-xs px-3 py-2 rounded flex items-center gap-1.5 shadow-sm transition"
         >
           <Plus className="w-4 h-4" />
           <span>New Report</span>
         </button>
       </div>
 
-      {/* 2. Filter Pills */}
-      <div className="flex items-center gap-1.5 overflow-x-auto text-[11px] font-mono pb-1 scrollbar-none">
-        {["ALL", "SUBMITTED", "UNDER_REVIEW", "REVIEWED", "CRITICAL", "HIGH"].map((f) => (
+      {/* 2. Filter Bar */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] font-mono scrollbar-none">
+        <span className="text-zinc-500 text-[10px] uppercase font-bold flex items-center gap-1 pl-1">
+          <Filter className="w-3 h-3 text-zinc-400" /> Filter:
+        </span>
+        {["ALL", "CRITICAL", "HIGH", "LANDSLIDE_OBSERVED", "ROAD_BLOCKED"].map((f) => (
           <button
             key={f}
             onClick={() => setActiveFilter(f)}
-            className={`px-2.5 py-1 rounded-lg transition whitespace-nowrap ${
+            className={`px-2.5 py-1 rounded font-bold uppercase transition whitespace-nowrap ${
               activeFilter === f
-                ? "bg-indigo-600 text-white font-bold"
-                : "bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800"
+                ? "bg-white text-black font-black shadow-sm"
+                : "bg-zinc-950 text-zinc-400 border border-zinc-800 hover:text-white"
             }`}
           >
-            {f.replace("_", " ")}
+            {f.replace(/_/g, " ")}
           </button>
         ))}
       </div>
 
-      {/* 3. Reports List */}
+      {/* 3. Reports Stream */}
       <div className="space-y-2.5">
         {filteredReports.length > 0 ? (
           filteredReports.map((rep) => (
             <div
               key={rep.id}
-              className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2 text-xs shadow-md"
+              className="bg-zinc-950 border border-zinc-800 rounded p-3.5 space-y-2.5 shadow-md text-xs font-mono"
             >
-              <div className="flex items-center justify-between font-mono text-[10px]">
-                <span className="font-bold text-indigo-400">
-                  {rep.report_type.replace(/_/g, " ")}
-                </span>
-                <div className="flex items-center gap-1.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
                   <span
-                    className={`px-1.5 py-0.5 rounded uppercase font-bold text-[9px] ${
+                    className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
                       rep.severity === "CRITICAL"
-                        ? "bg-red-500/20 text-red-400 border border-red-500/40"
+                        ? "bg-red-950 text-red-300 border border-red-700"
                         : rep.severity === "HIGH"
-                        ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
-                        : "bg-yellow-500/20 text-yellow-400 border border-yellow-500/40"
+                        ? "bg-orange-950 text-orange-300 border border-orange-700"
+                        : "bg-amber-950 text-amber-300 border border-amber-700"
                     }`}
                   >
                     {rep.severity}
                   </span>
-                  <span className="px-1.5 py-0.5 rounded uppercase font-bold text-[9px] bg-slate-950 text-slate-400 border border-slate-800">
-                    {rep.status}
+                  <span className="font-bold text-white text-[11px]">
+                    {rep.report_type.replace(/_/g, " ")}
                   </span>
                 </div>
+
+                <span className="text-[10px] text-zinc-500 flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  {new Date(rep.timestamp).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
               </div>
 
-              <p className="text-slate-200 text-xs leading-relaxed">{rep.description}</p>
+              <p className="text-zinc-200 text-xs font-sans leading-relaxed">{rep.description}</p>
 
               {/* Photo Evidence Thumbnails */}
               {rep.images && rep.images.length > 0 && (
@@ -201,60 +210,55 @@ export default function FieldReportsPage() {
                     <button
                       key={img.id}
                       type="button"
-                      onClick={() => setSelectedImageModal(`${apiUrl}${img.url}`)}
-                      className="group relative rounded-lg overflow-hidden border border-slate-700 hover:border-indigo-400 transition"
+                      onClick={() => setSelectedImageModal(img.url)}
+                      className="relative w-14 h-14 rounded overflow-hidden border border-zinc-700 hover:border-white transition shrink-0 group"
                     >
                       <img
-                        src={`${apiUrl}${img.url}`}
+                        src={img.url}
                         alt="Evidence"
-                        className="w-14 h-14 object-cover group-hover:scale-105 transition"
+                        className="w-full h-full object-cover group-hover:scale-105 transition"
                       />
-                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                        <ImageIcon className="w-3.5 h-3.5 text-white" />
-                      </div>
                     </button>
                   ))}
                 </div>
               )}
 
-              <div className="text-[10px] text-slate-500 font-mono flex items-center justify-between pt-1 border-t border-slate-800/80">
-                <span className="truncate max-w-[180px]">By: {rep.reported_by}</span>
-                <span className="flex items-center gap-1 shrink-0">
-                  <Clock className="w-3 h-3 text-slate-600" />
-                  {new Date(rep.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                </span>
-              </div>
-
-              {rep.latitude && rep.longitude && (
-                <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
-                  <MapPin className="w-3 h-3 text-indigo-400" />
+              <div className="flex items-center justify-between pt-1 border-t border-zinc-800 text-[10px] text-zinc-400">
+                <div className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3 text-zinc-500" />
                   <span>
-                    {rep.latitude.toFixed(4)}°N, {rep.longitude.toFixed(4)}°E
-                    {rep.location_accuracy ? ` (±${rep.location_accuracy.toFixed(0)}m)` : ""}
+                    {rep.latitude && rep.longitude
+                      ? `${rep.latitude.toFixed(4)}°N, ${rep.longitude.toFixed(4)}°E`
+                      : "GPS Sector Assigned"}
                   </span>
                 </div>
-              )}
+                <span className="text-zinc-500 font-bold">{rep.reported_by}</span>
+              </div>
             </div>
           ))
         ) : (
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center text-slate-500 text-xs font-mono">
-            No field reports found matching the selected filter.
+          <div className="bg-zinc-950 border border-zinc-800 rounded p-6 text-center space-y-2 font-mono">
+            <FileText className="w-6 h-6 text-zinc-600 mx-auto" />
+            <div className="text-zinc-400 text-xs font-bold">No ground reports filed yet</div>
+            <p className="text-zinc-600 text-[11px]">
+              Ground situation reports submitted by your unit or neighbor teams will appear here.
+            </p>
           </div>
         )}
       </div>
 
-      {/* --- SUBMIT REPORT MODAL --- */}
+      {/* 4. Full Geotagged Report Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-3 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-4 sm:p-5 space-y-3.5 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-                <Send className="w-4 h-4 text-indigo-400" />
-                Submit Ground Observation Report
+        <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-3 backdrop-blur-sm">
+          <div className="bg-zinc-950 border border-zinc-800 rounded w-full max-w-md p-4 sm:p-5 space-y-3.5 shadow-2xl text-white font-sans">
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+              <h3 className="text-sm font-black text-white flex items-center gap-2 font-mono uppercase">
+                <Send className="w-4 h-4" />
+                Submit Ground Observation
               </h3>
               <button
                 onClick={() => setShowModal(false)}
-                className="text-slate-400 hover:text-slate-200 text-xs font-mono"
+                className="text-zinc-400 hover:text-white text-xs font-mono font-bold"
               >
                 ✕ Close
               </button>
@@ -262,13 +266,13 @@ export default function FieldReportsPage() {
 
             <form onSubmit={handleSubmit} className="space-y-3 text-xs font-sans">
               <div>
-                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">
-                  Hazard Category:
+                <label className="block text-[10px] font-mono uppercase text-zinc-400 font-bold mb-1">
+                  Observation Type:
                 </label>
                 <select
                   value={reportType}
                   onChange={(e) => setReportType(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-200 font-mono text-xs focus:outline-none"
+                  className="w-full bg-black border border-zinc-800 rounded p-2 text-white font-mono text-xs focus:outline-none focus:border-zinc-600"
                 >
                   {REPORT_TYPES.map((t) => (
                     <option key={t} value={t}>
@@ -279,19 +283,19 @@ export default function FieldReportsPage() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">
-                  Severity Level:
+                <label className="block text-[10px] font-mono uppercase text-zinc-400 font-bold mb-1">
+                  Severity:
                 </label>
-                <div className="grid grid-cols-4 gap-1 font-mono text-[11px]">
-                  {["LOW", "MODERATE", "HIGH", "CRITICAL"].map((sev) => (
+                <div className="grid grid-cols-3 gap-2 font-mono text-[11px]">
+                  {["MODERATE", "HIGH", "CRITICAL"].map((sev) => (
                     <button
                       key={sev}
                       type="button"
                       onClick={() => setSeverity(sev)}
-                      className={`py-1.5 rounded font-bold uppercase transition ${
+                      className={`py-1.5 rounded font-black uppercase transition ${
                         severity === sev
-                          ? "bg-indigo-600 text-white"
-                          : "bg-slate-950 text-slate-400 border border-slate-800"
+                          ? "bg-white text-black font-black"
+                          : "bg-black text-zinc-400 border border-zinc-800 hover:text-white"
                       }`}
                     >
                       {sev}
@@ -301,27 +305,27 @@ export default function FieldReportsPage() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">
-                  Field Description / Ground Observation:
+                <label className="block text-[10px] font-mono uppercase text-zinc-400 font-bold mb-1">
+                  Field Notes &amp; Description:
                 </label>
                 <textarea
                   rows={3}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Describe slope movement, cracks in road, debris volume, trapped vehicles..."
+                  placeholder="Detail slope movement, debris blockage, water flow surge, or affected population..."
                   required
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-200 text-xs focus:outline-none"
+                  className="w-full bg-black border border-zinc-800 rounded p-2 text-white text-xs focus:outline-none focus:border-zinc-600 leading-relaxed"
                 />
               </div>
 
-              {/* Photo Evidence Capture (Camera / Gallery) */}
+              {/* Image attachment section */}
               <div>
-                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">
+                <label className="block text-[10px] font-mono uppercase text-zinc-400 font-bold mb-1">
                   Attach Photo Evidence:
                 </label>
                 <div className="flex items-center gap-2">
-                  <label className="cursor-pointer bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 px-3 py-1.5 rounded-lg font-mono text-[11px] flex items-center gap-1.5 transition">
-                    <Camera className="w-3.5 h-3.5 text-indigo-400" />
+                  <label className="cursor-pointer bg-black hover:bg-zinc-900 border border-zinc-800 text-white px-3 py-1.5 rounded font-mono text-[11px] flex items-center gap-1.5 transition font-bold">
+                    <Camera className="w-3.5 h-3.5 text-white" />
                     <span>Camera / Gallery</span>
                     <input
                       type="file"
@@ -336,7 +340,7 @@ export default function FieldReportsPage() {
                       <img
                         src={filePreview}
                         alt="Preview"
-                        className="w-8 h-8 object-cover rounded border border-slate-700"
+                        className="w-8 h-8 object-cover rounded border border-zinc-700"
                       />
                       <button
                         type="button"
@@ -344,7 +348,7 @@ export default function FieldReportsPage() {
                           setSelectedFile(null);
                           setFilePreview(null);
                         }}
-                        className="text-[10px] text-red-400 hover:text-red-300 font-mono"
+                        className="text-[10px] text-red-400 hover:text-red-300 font-mono font-bold"
                       >
                         Remove
                       </button>
@@ -353,39 +357,30 @@ export default function FieldReportsPage() {
                 </div>
               </div>
 
-              {/* GPS Location Tagging */}
-              <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 flex items-center justify-between text-[10px] font-mono">
-                <div className="flex items-center gap-1.5 text-slate-400 truncate">
-                  <MapPin className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                  <span className="truncate">
-                    {coords
-                      ? `GPS: ${coords.lat.toFixed(4)}°N, ${coords.lon.toFixed(4)}°E (±${coords.accuracy || 15}m)`
-                      : geoStatus}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => requestGPSLocation()}
-                  className="text-indigo-400 hover:text-indigo-300 font-bold shrink-0 ml-2"
-                >
-                  Refresh GPS
-                </button>
+              {/* GPS metadata banner */}
+              <div className="text-[10px] text-zinc-400 font-mono flex items-center gap-1.5 bg-black p-2 rounded border border-zinc-800">
+                <MapPin className="w-3 h-3 text-white shrink-0" />
+                <span>
+                  {coords
+                    ? `GPS: ${coords.lat.toFixed(4)}°N, ${coords.lon.toFixed(4)}°E (±${coords.accuracy || 15}m)`
+                    : geoStatus}
+                </span>
               </div>
 
               <div className="flex items-center gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2.5 rounded-xl font-mono text-xs"
+                  className="flex-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 py-2.5 rounded font-mono text-xs font-bold transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting || !description.trim()}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white py-2.5 rounded-xl font-mono font-bold text-xs shadow-md shadow-indigo-950"
+                  className="flex-1 bg-white hover:bg-zinc-200 disabled:opacity-50 text-black py-2.5 rounded font-mono font-black text-xs shadow-sm transition"
                 >
-                  {isSubmitting ? "Transmitting..." : "Submit Report"}
+                  {isSubmitting ? "Transmitting..." : "Send Report"}
                 </button>
               </div>
             </form>
@@ -393,24 +388,24 @@ export default function FieldReportsPage() {
         </div>
       )}
 
-      {/* --- IMAGE FULL PREVIEW MODAL --- */}
+      {/* 5. Image Lightbox Modal */}
       {selectedImageModal && (
         <div
-          className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4 backdrop-blur-md"
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-3 backdrop-blur-md"
           onClick={() => setSelectedImageModal(null)}
         >
-          <div className="relative max-w-lg w-full bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
-            <button
-              onClick={() => setSelectedImageModal(null)}
-              className="absolute top-2 right-2 bg-slate-950/80 hover:bg-slate-800 text-white p-1.5 rounded-full"
-            >
-              <X className="w-4 h-4" />
-            </button>
+          <div className="relative max-w-2xl max-h-[85vh] overflow-hidden rounded border border-zinc-800 bg-black">
             <img
               src={selectedImageModal}
-              alt="Evidence Full View"
-              className="w-full h-auto max-h-[75vh] object-contain"
+              alt="Full evidence view"
+              className="max-h-[80vh] w-auto object-contain mx-auto"
             />
+            <button
+              onClick={() => setSelectedImageModal(null)}
+              className="absolute top-2 right-2 bg-black/80 text-white p-1 rounded font-mono text-xs border border-zinc-700"
+            >
+              ✕ Close
+            </button>
           </div>
         </div>
       )}

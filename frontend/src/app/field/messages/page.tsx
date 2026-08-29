@@ -30,14 +30,14 @@ export default function FieldMessagesPage() {
   };
 
   return (
-    <main className="flex-1 p-3 sm:p-4 space-y-3.5">
+    <main className="flex-1 p-3 sm:p-4 space-y-3.5 font-sans text-white bg-black">
       {/* 1. Header */}
       <div>
-        <h2 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+        <h2 className="text-sm font-black text-white flex items-center gap-2 font-mono uppercase tracking-wider">
           <Bell className="w-4 h-4 text-amber-400" />
           Command Directives &amp; Operational Messages
         </h2>
-        <p className="text-[11px] text-slate-400 font-mono">
+        <p className="text-[11px] text-zinc-400 font-mono">
           Directives dispatched from Central Expert Command to {callsign}
         </p>
       </div>
@@ -52,12 +52,12 @@ export default function FieldMessagesPage() {
             return (
               <div
                 key={msg.id}
-                className={`rounded-xl p-3.5 space-y-2 text-xs border shadow-md transition ${
+                className={`rounded p-3.5 space-y-2 text-xs border shadow-md transition font-mono ${
                   isUrgent && !isAcked
-                    ? "bg-red-950/80 border-red-800"
+                    ? "bg-red-950/80 border-red-700"
                     : isAcked
-                    ? "bg-slate-900/60 border-slate-800/80 opacity-80"
-                    : "bg-slate-900 border-slate-800"
+                    ? "bg-zinc-950 border-zinc-850 opacity-80"
+                    : "bg-zinc-950 border-zinc-800"
                 }`}
               >
                 <div className="flex items-center justify-between font-mono text-[10px]">
@@ -65,11 +65,11 @@ export default function FieldMessagesPage() {
                     {isUrgent ? (
                       <AlertOctagon className="w-3.5 h-3.5 text-red-400" />
                     ) : (
-                      <Radio className="w-3.5 h-3.5 text-indigo-400" />
+                      <Radio className="w-3.5 h-3.5 text-white" />
                     )}
                     <span
-                      className={`font-bold ${
-                        isUrgent ? "text-red-300" : "text-indigo-400"
+                      className={`font-black ${
+                        isUrgent ? "text-red-300" : "text-white"
                       }`}
                     >
                       {msg.sender_id}
@@ -77,21 +77,21 @@ export default function FieldMessagesPage() {
                   </div>
 
                   <span
-                    className={`px-1.5 py-0.5 rounded font-bold uppercase ${
+                    className={`px-1.5 py-0.5 rounded font-black uppercase ${
                       isUrgent
                         ? "bg-red-600 text-white"
-                        : "bg-slate-800 text-slate-300"
+                        : "bg-zinc-800 text-zinc-300"
                     }`}
                   >
                     {msg.priority}
                   </span>
                 </div>
 
-                <p className="text-slate-100 text-xs leading-relaxed font-sans">{msg.message}</p>
+                <p className="text-zinc-100 text-xs leading-relaxed font-sans font-medium">{msg.message}</p>
 
-                <div className="flex items-center justify-between pt-1 border-t border-slate-800/80 font-mono text-[10px] text-slate-400">
-                  <span className="flex items-center gap-1 text-slate-500">
-                    <Clock className="w-3 h-3 text-slate-600" />
+                <div className="flex items-center justify-between pt-1 border-t border-zinc-800 font-mono text-[10px] text-zinc-400">
+                  <span className="flex items-center gap-1 text-zinc-500">
+                    <Clock className="w-3 h-3 text-zinc-600" />
                     {new Date(msg.created_at).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
@@ -100,16 +100,16 @@ export default function FieldMessagesPage() {
 
                   {isAcked ? (
                     <span className="flex items-center gap-1 text-emerald-400 font-bold">
-                      <Check className="w-3 h-3" />
-                      <span>ACKNOWLEDGED</span>
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Acknowledged
                     </span>
                   ) : (
                     <button
                       onClick={() => handleAcknowledge(msg.id)}
                       disabled={acknowledgingId === msg.id}
-                      className="bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white px-2.5 py-1 rounded-lg font-bold transition flex items-center gap-1 shadow-sm"
+                      className="bg-white hover:bg-zinc-200 text-black font-black text-[10px] px-2.5 py-1 rounded transition shadow-sm"
                     >
-                      {acknowledgingId === msg.id ? "Syncing..." : "ACKNOWLEDGE"}
+                      {acknowledgingId === msg.id ? "Syncing..." : "Acknowledge"}
                     </button>
                   )}
                 </div>
@@ -117,8 +117,12 @@ export default function FieldMessagesPage() {
             );
           })
         ) : (
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center text-slate-500 text-xs font-mono">
-            No directives or operational messages received yet.
+          <div className="bg-zinc-950 border border-zinc-800 rounded p-6 text-center space-y-2 font-mono">
+            <Radio className="w-6 h-6 text-zinc-600 mx-auto" />
+            <div className="text-zinc-400 text-xs font-bold">No active directives in queue</div>
+            <p className="text-zinc-600 text-[11px]">
+              Directives from the Central Command Officer will appear here in real-time.
+            </p>
           </div>
         )}
       </div>

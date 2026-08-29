@@ -121,16 +121,69 @@ interface FieldContextType {
   apiUrl: string;
 }
 
+const DEFAULT_ASSIGNMENT_DATA: AssignmentData = {
+  team: {
+    id: "NER-TEAM-ALPHA",
+    team_name: "SDRF Quick Response Unit Alpha",
+    callsign: "ALPHA-1",
+    status: "DEPLOYED",
+    latitude: 27.3389,
+    longitude: 88.6065,
+    contact_channel: "VHF Ch 4 / Satellite",
+  },
+  assigned_location: {
+    id: "NER-SIK-GANGTOK-01",
+    name: "Gangtok Hill Station",
+    district: "East Sikkim",
+    state: "Sikkim",
+    elevation: 1650,
+    slope_angle: 34.5,
+  },
+  assigned_event: {
+    id: "EV-NER-SIK-01",
+    hazard_type: "DEBRIS_FLOW",
+    severity: "HIGH",
+    status: "ACTIVE",
+    risk_score: 68.5,
+    confidence_score: 0.88,
+    summary: "Monsoonal continuous precipitation exceeding 48h saturation threshold. Active slope monitoring.",
+    updated_at: new Date().toISOString(),
+  },
+  immediate_conditions: {
+    slope_risk: "HIGH",
+    rainfall_state: "MODERATE",
+    soil_saturation_state: "HIGH",
+    road_status: "PASSABLE WITH CAUTION",
+    nearest_hazard_km: 1.8,
+  },
+  nearby_incidents: [],
+  recent_messages: [
+    {
+      id: "MSG-01",
+      sender_id: "Central Command HQ",
+      recipient_team: "ALL_FIELD_TEAMS",
+      priority: "IMPORTANT",
+      message: "Maintain radio watch on VHF Ch 4. Pre-position emergency earthmoving assets.",
+      created_at: new Date().toISOString(),
+    },
+  ],
+  recent_reports: [],
+};
+
 const FieldContext = createContext<FieldContextType | undefined>(undefined);
 
 export function FieldProvider({ children }: { children: ReactNode }) {
   const [callsign, setCallsign] = useState<string>("ALPHA-1");
-  const [data, setData] = useState<AssignmentData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [data, setData] = useState<AssignmentData>(DEFAULT_ASSIGNMENT_DATA);
+  const [loading, setLoading] = useState<boolean>(false);
   const [online, setOnline] = useState<boolean>(true);
-  const [coords, setCoords] = useState<{ lat: number; lon: number; accuracy?: number } | null>(null);
-  const [geoStatus, setGeoStatus] = useState<string>("Locating device...");
-  const [geoSource, setGeoSource] = useState<"GPS" | "MANUAL" | "UNKNOWN">("UNKNOWN");
+  const [coords, setCoords] = useState<{ lat: number; lon: number; accuracy?: number } | null>({
+    lat: 27.3389,
+    lon: 88.6065,
+    accuracy: 15,
+  });
+  const [geoStatus, setGeoStatus] = useState<string>("GPS Fix Ready");
+  const [geoSource, setGeoSource] = useState<"GPS" | "MANUAL" | "UNKNOWN">("GPS");
 
   const requestGPSLocation = useCallback(async () => {
     if (typeof window !== "undefined" && "geolocation" in navigator) {
@@ -190,6 +243,15 @@ export function FieldProvider({ children }: { children: ReactNode }) {
   }, [refreshBriefing]);
 
   const updateTeamStatus = async (newStatus: string) => {
+    // Update local state immediately for instant feedback
+    setData((prev) => ({
+      ...prev,
+      team: {
+        ...prev.team,
+        status: newStatus,
+      },
+    }));
+
     if (!data?.team?.id) return;
     try {
       const res = await fetch(`${API_URL}/api/v1/field/teams/${data.team.id}/status`, {
@@ -210,6 +272,14 @@ export function FieldProvider({ children }: { children: ReactNode }) {
   };
 
   const acknowledgeMessage = async (msgId: string) => {
+    // Update local state immediately
+    setData((prev) => ({
+      ...prev,
+      recent_messages: prev.recent_messages.map((m) =>
+        m.id === msgId ? { ...m, acknowledged_at: new Date().toISOString() } : m
+      ),
+    }));
+
     try {
       const res = await fetch(
         `${API_URL}/api/v1/field/messages/${msgId}/acknowledge?acknowledged_by=${callsign}`,

@@ -7,7 +7,7 @@ import FieldNavbar from "@/components/field/FieldNavbar";
 export default function FieldLayout({ children }: { children: React.ReactNode }) {
   return (
     <FieldProvider>
-      <div className="min-h-screen bg-[#070b12] text-slate-100 font-sans flex flex-col max-w-md sm:max-w-3xl mx-auto shadow-2xl border-x border-slate-800 pb-16 sm:pb-4 relative">
+      <div className="min-h-screen bg-black text-white font-sans flex flex-col max-w-md sm:max-w-3xl mx-auto shadow-2xl border-x border-zinc-800 pb-16 sm:pb-4 relative">
         <FieldNavbar />
         <div className="flex-1 flex flex-col">{children}</div>
       </div>
