@@ -30,10 +30,13 @@ class WeatherObservation(Base):
     # Data Provenance & Freshness Metadata
     source = Column(String(64), nullable=False, default="mock_multisignal_simulator", index=True)
     source_version = Column(String(32), nullable=False, default="v1")
+    observation_type = Column(String(32), nullable=False, default="OBSERVED")  # OBSERVED, FORECAST, DERIVED, MODELLED, SATELLITE
+    quality_score = Column(Float, nullable=False, default=1.0)
     retrieved_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     freshness_status = Column(String(32), nullable=False, default="FRESH")  # FRESH, AGING, STALE, UNKNOWN
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
 
     # Relationships
     location = relationship("Location", back_populates="observations")

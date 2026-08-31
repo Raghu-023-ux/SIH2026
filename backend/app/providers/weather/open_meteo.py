@@ -8,6 +8,7 @@ from backend.app.models.location import Location
 from backend.app.models.weather import WeatherObservation
 from backend.app.providers.base import WeatherDataSource
 from backend.app.providers.health import provider_health_registry
+from backend.app.core.cache import cache
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
 
@@ -23,11 +24,15 @@ class OpenMeteoWeatherProvider(WeatherDataSource):
     def __init__(
         self,
         api_url: str = settings.OPEN_METEO_API_URL,
+        elevation_api_url: str = "https://api.open-meteo.com/v1/elevation",
+        archive_api_url: str = "https://archive-api.open-meteo.com/v1/archive",
         timeout_seconds: float = settings.WEATHER_REQUEST_TIMEOUT_SECONDS,
         max_retries: int = settings.WEATHER_MAX_RETRIES,
         backoff_factor: float = settings.WEATHER_BACKOFF_FACTOR
     ):
         self._api_url = api_url
+        self._elevation_api_url = elevation_api_url
+        self._archive_api_url = archive_api_url
         self._timeout = timeout_seconds
         self._max_retries = max_retries
         self._backoff = backoff_factor
@@ -45,6 +50,40 @@ class OpenMeteoWeatherProvider(WeatherDataSource):
             raise ValueError(f"Invalid latitude {lat}. Must be between -90 and 90.")
         if lon < -180.0 or lon > 180.0:
             raise ValueError(f"Invalid longitude {lon}. Must be between -180 and 180.")
+
+    async def get_elevation(self, lat: float, lon: float) -> Optional[float]:
+        """
+        Retrieves high-precision digital elevation (m above sea level) from Open-Meteo SRTM/DEM API.
+        Caches result in Redis for high performance.
+        """
+        self.validate_coordinates(lat, lon)
+        cache_key = f"terrain:elevation:{lat:.4f}:{lon:.4f}"
+        cached = await cache.get(cache_key)
+        if cached is not None and isinstance(cached, (int, float)):
+            return float(cached)
+
+        start_t = time.perf_counter()
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                resp = await client.get(
+                    self._elevation_api_url,
+                    params={"latitude": round(lat, 4), "longitude": round(lon, 4)}
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    elevations = data.get("elevation", [])
+                    if elevations and isinstance(elevations, list):
+                        elev_val = float(elevations[0])
+                        # Cache permanently/long-term (86400s) as elevation is invariant
+                        await cache.set(cache_key, elev_val, ttl_seconds=86400)
+                        latency = (time.perf_counter() - start_t) * 1000.0
+                        provider_health_registry.record_success("open-meteo-elevation", latency)
+                        return elev_val
+        except Exception as err:
+            logger.warning(f"Open-Meteo elevation lookup failed for ({lat}, {lon}): {err}")
+            provider_health_registry.record_failure("open-meteo-elevation", str(err))
+
+        return None
 
     async def get_observations(
         self,
@@ -152,7 +191,7 @@ class OpenMeteoWeatherProvider(WeatherDataSource):
             # Parse ISO string (e.g. "2026-08-28T14:00")
             dt = datetime.fromisoformat(time_str).replace(tzinfo=timezone.utc)
 
-            # Skip points further than 1 hour into future
+            # Skip points further than 1 hour into future for primary observational timeseries
             if dt > now_retrieved + timedelta(hours=1):
                 continue
 
@@ -176,6 +215,8 @@ class OpenMeteoWeatherProvider(WeatherDataSource):
             if sm_composite is not None:
                 sm_composite = round(max(0.0, min(100.0, sm_composite)), 1)
 
+            obs_type = "FORECAST" if dt > now_retrieved else "OBSERVED"
+
             obs = WeatherObservation(
                 location_id=location_id,
                 timestamp=dt,
@@ -188,7 +229,12 @@ class OpenMeteoWeatherProvider(WeatherDataSource):
                 rainfall_6h=round(float(r6h), 2),
                 rainfall_24h=round(float(r24h), 2),
                 soil_moisture=sm_composite,
-                source="OPEN_METEO"
+                source="OPEN_METEO",
+                source_version="open-meteo-v1",
+                observation_type=obs_type,
+                quality_score=1.0,
+                retrieved_at=now_retrieved,
+                freshness_status="FRESH"
             )
             observations.append(obs)
 

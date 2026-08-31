@@ -140,12 +140,15 @@ class EnvironmentalDataService:
                             "soil_moisture": o.soil_moisture,
                             "source": o.source,
                             "source_version": o.source_version,
+                            "observation_type": getattr(o, "observation_type", "OBSERVED"),
+                            "quality_score": getattr(o, "quality_score", 1.0),
                             "freshness_status": self.evaluate_freshness(o.timestamp).value
                         }
                         for o in obs
                     ]
                     await cache.set(cache_key, serializable, ttl_seconds=settings.WEATHER_CACHE_TTL_SECONDS)
                     return obs, self.live_weather.provider_name, True
+
 
             except Exception as err:
                 logger.warning(f"Live provider failed for {location.name} ({err}). Engaging graceful fallback...")

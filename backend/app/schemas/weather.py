@@ -17,7 +17,10 @@ class WeatherObservationBase(BaseModel):
     soil_moisture: Optional[float] = Field(default=None, ge=0.0, le=100.0)
     source: str = "OPEN_METEO"
     source_version: str = "v1"
+    observation_type: str = "OBSERVED"
+    quality_score: float = 1.0
     freshness_status: str = "FRESH"
+
 
 
 class WeatherObservationCreate(WeatherObservationBase):

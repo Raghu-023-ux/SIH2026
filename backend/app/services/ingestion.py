@@ -185,9 +185,12 @@ class MockWeatherDataSource(DataSource):
                 rainfall_6h=round(max(0.0, rain_6h), 2),
                 rainfall_24h=round(max(0.0, rain_24h), 2),
                 soil_moisture=round(max(0.0, min(100.0, soil_moisture)), 1),
-                source="mock_multisignal_simulator"
+                source="mock_multisignal_simulator",
+                observation_type="SIMULATED",
+                quality_score=1.0
             )
             observations.append(obs)
+
 
         return observations
 
