@@ -15,8 +15,8 @@ class ExplanationAgent:
     into intuitive, high-clarity operational prose for duty officers and field commanders.
     """
 
-    def __init__(self):
-        self.provider = get_llm_provider()
+    def __init__(self, provider: Optional[Any] = None):
+        self._custom_provider = provider
 
     async def explain(
         self,
@@ -24,6 +24,7 @@ class ExplanationAgent:
         location_id: str,
         question: Optional[str] = None
     ) -> AgentAnalysis:
+        provider = self._custom_provider or get_llm_provider()
         evidence: List[EvidenceReference] = []
 
         # 1. Fetch Location Profile
@@ -69,7 +70,7 @@ class ExplanationAgent:
 
         user_prompt = question or f"Explain why {loc.get('name')} has been assessed at risk level {assessment.get('risk_level')}."
 
-        analysis = await self.provider.generate_structured_analysis(
+        analysis = await provider.generate_structured_analysis(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             evidence=evidence,

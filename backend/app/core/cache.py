@@ -37,6 +37,10 @@ class CacheKeys:
     def historical_incident(incident_id: str) -> str:
         return f"historical:incident:{incident_id}"
 
+    @staticmethod
+    def ai_explanation(location_id: str, assessment_id: str, agent_type: str) -> str:
+        return f"ai:explanation:{location_id}:{assessment_id}:{agent_type}"
+
 
 __all__ = [
     "cache",

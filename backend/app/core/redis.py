@@ -93,7 +93,7 @@ class UpstashRedisClient:
 
     async def ping(self) -> bool:
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            resp = await client.post(f"{self.url}/ping", headers=self.headers)
+            resp = await client.post(self.url, headers=self.headers, json=["PING"])
             if resp.status_code == 200:
                 data = resp.json()
                 return data.get("result") == "PONG"
@@ -101,18 +101,18 @@ class UpstashRedisClient:
 
     async def get(self, key: str) -> Optional[str]:
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            resp = await client.get(f"{self.url}/get/{key}", headers=self.headers)
+            resp = await client.post(self.url, headers=self.headers, json=["GET", key])
             if resp.status_code == 200:
                 data = resp.json()
                 return data.get("result")
             return None
 
     async def set(self, key: str, value: str, ex_seconds: Optional[int] = None) -> bool:
+        cmd = ["SET", key, value]
+        if ex_seconds:
+            cmd.extend(["EX", str(ex_seconds)])
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            endpoint = f"{self.url}/set/{key}/{value}"
-            if ex_seconds:
-                endpoint += f"?ex={ex_seconds}"
-            resp = await client.post(endpoint, headers=self.headers)
+            resp = await client.post(self.url, headers=self.headers, json=cmd)
             if resp.status_code == 200:
                 data = resp.json()
                 return data.get("result") in ["OK", True, 1]
@@ -120,7 +120,7 @@ class UpstashRedisClient:
 
     async def delete(self, key: str) -> bool:
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            resp = await client.post(f"{self.url}/del/{key}", headers=self.headers)
+            resp = await client.post(self.url, headers=self.headers, json=["DEL", key])
             if resp.status_code == 200:
                 data = resp.json()
                 return bool(data.get("result", 0))
@@ -128,7 +128,7 @@ class UpstashRedisClient:
 
     async def exists(self, key: str) -> bool:
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            resp = await client.get(f"{self.url}/exists/{key}", headers=self.headers)
+            resp = await client.post(self.url, headers=self.headers, json=["EXISTS", key])
             if resp.status_code == 200:
                 data = resp.json()
                 return bool(data.get("result", 0))
@@ -136,14 +136,15 @@ class UpstashRedisClient:
 
     async def increment(self, key: str, amount: int = 1, ttl_seconds: Optional[int] = None) -> int:
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            resp = await client.post(f"{self.url}/incrby/{key}/{amount}", headers=self.headers)
+            resp = await client.post(self.url, headers=self.headers, json=["INCRBY", key, str(amount)])
             if resp.status_code == 200:
                 data = resp.json()
                 new_val = int(data.get("result", 1))
                 if ttl_seconds and new_val == amount:
-                    await client.post(f"{self.url}/expire/{key}/{ttl_seconds}", headers=self.headers)
+                    await client.post(self.url, headers=self.headers, json=["EXPIRE", key, str(ttl_seconds)])
                 return new_val
             return 1
+
 
 
 class RedisService:

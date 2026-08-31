@@ -16,8 +16,8 @@ class InvestigationAgent:
     pore saturation shifts, regional cluster agreement, and on-ground field observations.
     """
 
-    def __init__(self):
-        self.provider = get_llm_provider()
+    def __init__(self, provider: Optional[Any] = None):
+        self._custom_provider = provider
 
     async def investigate(
         self,
@@ -26,6 +26,7 @@ class InvestigationAgent:
         event_id: Optional[str] = None,
         question: Optional[str] = None
     ) -> AgentAnalysis:
+        provider = self._custom_provider or get_llm_provider()
         evidence: List[EvidenceReference] = []
 
         # 1. Fetch Location Profile
@@ -87,7 +88,7 @@ class InvestigationAgent:
 
         user_prompt = question or f"Investigate recent risk changes, triggers, and field reports at {loc.get('name')}."
 
-        analysis = await self.provider.generate_structured_analysis(
+        analysis = await provider.generate_structured_analysis(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             evidence=evidence,

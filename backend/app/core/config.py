@@ -64,13 +64,25 @@ class Settings(BaseSettings):
     DATA_FRESHNESS_WEATHER_MINUTES: int = 60
     DATA_FRESHNESS_SOIL_MOISTURE_MINUTES: int = 180
 
-    # --- Agentic AI Layer Configuration ---
-    LLM_PROVIDER: str = "mock"  # "mock", "openai", "gemini"
-    LLM_MODEL: str = "gemini-1.5-flash"
+    AI_EXPLANATION_CACHE_TTL_SECONDS: int = 900     # 15 mins for AI risk explanation briefings
+
+    # --- Agentic AI & Google Gemini Configuration ---
+    GEMINI_API_KEY: Optional[str] = None
+    GEMINI_MODEL: str = "gemini-3.6-flash"
+    LLM_PROVIDER: str = "gemini"  # "mock", "gemini", "openai"
+    LLM_MODEL: Optional[str] = None
     LLM_API_KEY: Optional[str] = None
-    AI_MODE: str = "MOCK"  # "MOCK" or "LIVE"
+    AI_MODE: str = "LIVE"  # "MOCK" or "LIVE"
     AGENT_MAX_STEPS: int = 6
     AGENT_TIMEOUT_SECONDS: float = 20.0
+
+    @property
+    def EFFECTIVE_GEMINI_KEY(self) -> Optional[str]:
+        return self.GEMINI_API_KEY or self.LLM_API_KEY
+
+    @property
+    def EFFECTIVE_GEMINI_MODEL(self) -> str:
+        return self.GEMINI_MODEL or self.LLM_MODEL or "gemini-3.6-flash"
 
     # CORS origins
     BACKEND_CORS_ORIGINS: List[str] = [

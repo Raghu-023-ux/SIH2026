@@ -13,10 +13,12 @@ from backend.app.schemas.ai import (
 )
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
+from backend.app.core.cache import cache, CacheKeys
+from backend.app.providers.health import provider_health_registry
 
 
 class LLMProvider(ABC):
-    """Abstract interface for LLM backends (Mock, OpenAI, Gemini)."""
+    """Abstract interface for LLM backends (Mock, Gemini, OpenAI)."""
 
     @abstractmethod
     async def generate_structured_analysis(
@@ -31,7 +33,7 @@ class LLMProvider(ABC):
 
 class MockLLMProvider(LLMProvider):
     """
-    Deterministic analytical provider using transparent mathematical synthesis.
+    Deterministic analytical synthesizer using transparent mathematical synthesis.
     Eliminates external API costs, supports offline demonstrations,
     and guarantees zero hallucinations or altered scientific values.
     """
@@ -43,7 +45,6 @@ class MockLLMProvider(LLMProvider):
         evidence: List[EvidenceReference],
         context_data: Dict[str, Any]
     ) -> AgentAnalysis:
-        # Extract verified scientific telemetry from context
         assessment = context_data.get("assessment", {})
         location = context_data.get("location", {})
         environment = context_data.get("environment", {})
@@ -60,7 +61,6 @@ class MockLLMProvider(LLMProvider):
         risk_level = str(assessment.get("risk_level", "LOW"))
         confidence = float(assessment.get("confidence_score", 0.8))
         trajectory = str(assessment.get("trajectory", "STABLE"))
-        reasons = assessment.get("reason_codes", [])
         factors = assessment.get("factors", [])
 
         findings: List[AgentFinding] = []
@@ -90,12 +90,12 @@ class MockLLMProvider(LLMProvider):
                 AgentFinding(
                     type="risk_driver",
                     title=f"Elevated {f_name} ({status})",
-                    description=f"{f_name} is contributing {contrib:.1f} points towards total hazard risk. Current measured value: {val}.",
+                    description=f"{f_name} contributes {contrib:.1f} points towards total hazard risk. Current measured value: {val}.",
                     evidence=[ev]
                 )
             )
 
-        # 2. Historical trajectory findings (Investigation)
+        # 2. Historical trajectory findings
         if len(history) >= 2:
             prev_score = float(history[1].get("risk_score", risk_score))
             delta = risk_score - prev_score
@@ -113,12 +113,12 @@ class MockLLMProvider(LLMProvider):
                     AgentFinding(
                         type="signal_change",
                         title=f"Risk Score {direction_word.capitalize()} by {abs(delta):.1f} pts",
-                        description=f"Hazard score evolved from {prev_score:.1f} to {risk_score:.1f} over recent assessment cycles. Trajectory is currently classified as {trajectory}.",
+                        description=f"Hazard score evolved from {prev_score:.1f} to {risk_score:.1f} over recent assessment cycles. Trajectory is currently {trajectory}.",
                         evidence=[ev_hist]
                     )
                 )
 
-        # 3. Field Ground-Truth Corroboration (Prompt 6 Enhancement)
+        # 3. Field Ground-Truth Corroboration
         if field_reports_data:
             road_blocks = [r for r in field_reports_data if r.get("report_type") == "ROAD_BLOCKED"]
             landslides_seen = [r for r in field_reports_data if r.get("report_type") == "LANDSLIDE_OBSERVED"]
@@ -259,15 +259,22 @@ class MockLLMProvider(LLMProvider):
         )
 
 
-class HttpLLMProvider(LLMProvider):
+class GeminiProvider(LLMProvider):
     """
-    HTTP client for external LLMs (OpenAI, Gemini, Ollama) with timeout, retry,
-    and automatic fallback to deterministic analysis upon failure.
+    Google AI Studio / Gemini LLM Provider.
+    Generates structured scientific explanations and operational briefings from verified telemetry.
+    Strictly constrained by prompt guardrails and automatic fallback to deterministic synthesis.
     """
 
-    def __init__(self, api_key: Optional[str] = settings.LLM_API_KEY, model: str = settings.LLM_MODEL):
-        self.api_key = api_key
-        self.model = model
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        model: Optional[str] = None,
+        timeout: float = settings.AGENT_TIMEOUT_SECONDS
+    ):
+        self.api_key = api_key or settings.EFFECTIVE_GEMINI_KEY
+        self.model = model or settings.EFFECTIVE_GEMINI_MODEL
+        self.timeout = timeout
         self.mock_fallback = MockLLMProvider()
 
     async def generate_structured_analysis(
@@ -277,18 +284,190 @@ class HttpLLMProvider(LLMProvider):
         evidence: List[EvidenceReference],
         context_data: Dict[str, Any]
     ) -> AgentAnalysis:
+        # Extract ground truth deterministic values to prevent LLM override
+        assessment = context_data.get("assessment", {})
+        loc = context_data.get("location", {})
+        location_id = loc.get("id", "NER-STATION")
+        assessment_id = str(assessment.get("assessment_id", assessment.get("id", "current")))
+        
+        # 1. Check Redis Cache for identical assessment snapshot
+        cache_key = CacheKeys.ai_explanation(location_id, assessment_id, "expert_briefing")
+        cached_result = await cache.get(cache_key)
+        if cached_result:
+            try:
+                logger.debug(f"Redis Cache HIT for Gemini explanation at {location_id}")
+                return AgentAnalysis(**cached_result)
+            except Exception:
+                pass
+
         if not self.api_key:
-            logger.info("No LLM API key detected. Utilizing deterministic analytical provider.")
+            logger.info("No Gemini API key configured. Executing deterministic analytical synthesizer.")
             return await self.mock_fallback.generate_structured_analysis(system_prompt, user_prompt, evidence, context_data)
 
+        # Build strict prompt payload with scientific guardrails
+        strict_system_prompt = (
+            f"{system_prompt}\n\n"
+            "CRITICAL SCIENTIFIC SAFETY RULES:\n"
+            "1. You are an explainability and evidence-synthesis assistant for professional disaster managers.\n"
+            "2. You MUST NOT modify, recalculate, or contradict the deterministic risk score, severity level, confidence, or trajectory.\n"
+            "3. You MUST NOT invent sensor telemetry, rainfall numbers, soil moisture levels, slope angles, or historical incidents.\n"
+            "4. Only cite and summarize the verified measurements and factor contributions provided in the context JSON.\n"
+            "5. Clearly differentiate verified physical measurements from derived indicators and data quality uncertainties.\n"
+            "6. 'recommendations' must describe specific physical/tactical investigations for human experts to conduct, NOT autonomous emergency declarations.\n"
+            "7. Return STRICTLY valid JSON matching the schema below without conversational filler or markdown wrappers."
+        )
+
+        schema_format = {
+            "summary": "Concise 2-3 sentence technical operational summary.",
+            "findings": [
+                {
+                    "type": "risk_driver | signal_change | field_observation | regional_correlation",
+                    "title": "Short descriptive title",
+                    "description": "Evidence-backed explanation citing exact values."
+                }
+            ],
+            "uncertainties": [
+                {
+                    "factor": "Factor name (e.g. Subsurface Moisture)",
+                    "reason": "Technical reason for uncertainty or sensor limitation",
+                    "impact": "CRITICAL | HIGH | MODERATE | LOW"
+                }
+            ],
+            "recommendations": [
+                {
+                    "priority": "CRITICAL | HIGH | MEDIUM | LOW",
+                    "action": "Concrete investigation action for duty officers",
+                    "rationale": "Justification based on telemetry"
+                }
+            ]
+        }
+
+        user_content = (
+            f"USER QUERY: {user_prompt}\n\n"
+            f"VERIFIED CONTEXT DATA:\n{json.dumps(context_data, default=str)}\n\n"
+            f"DESIRED JSON SCHEMA STRUCTURE:\n{json.dumps(schema_format)}"
+        )
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
+        headers = {
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {"text": f"SYSTEM INSTRUCTIONS:\n{strict_system_prompt}\n\n{user_content}"}
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "responseMimeType": "application/json",
+                "temperature": 0.2
+            }
+        }
+
+        start_t = time.perf_counter()
+        http_timeout = httpx.Timeout(self.timeout, connect=5.0)
         try:
-            return await self.mock_fallback.generate_structured_analysis(system_prompt, user_prompt, evidence, context_data)
+            async with httpx.AsyncClient(timeout=http_timeout) as client:
+                resp = await client.post(url, headers=headers, json=payload)
+                latency_ms = (time.perf_counter() - start_t) * 1000.0
+
+
+                if resp.status_code == 200:
+                    data = resp.json()
+                    candidates = data.get("candidates", [])
+                    if candidates:
+                        raw_text = candidates[0]["content"]["parts"][0]["text"].strip()
+                        if raw_text.startswith("```json"):
+                            raw_text = raw_text[7:]
+                        elif raw_text.startswith("```"):
+                            raw_text = raw_text[3:]
+                        if raw_text.endswith("```"):
+                            raw_text = raw_text[:-3]
+                        raw_text = raw_text.strip()
+                        
+                        try:
+                            parsed_json = json.loads(raw_text)
+                        except json.JSONDecodeError:
+                            # Try finding first { and last }
+                            start_idx = raw_text.find("{")
+                            end_idx = raw_text.rfind("}")
+                            if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                                parsed_json = json.loads(raw_text[start_idx:end_idx + 1])
+                            else:
+                                raise
+
+                        # Enforce deterministic ground truth values from assessment
+                        risk_score = float(assessment.get("risk_score", 0.0))
+                        risk_level = str(assessment.get("risk_level", "LOW"))
+                        confidence = float(assessment.get("confidence_score", 0.8))
+                        trajectory = str(assessment.get("trajectory", "STABLE"))
+
+                        # Parse findings, uncertainties, recommendations safely
+                        findings = [
+                            AgentFinding(
+                                type=f.get("type", "risk_driver"),
+                                title=f.get("title", "Hazard Indicator"),
+                                description=f.get("description", "")
+                            )
+                            for f in parsed_json.get("findings", [])
+                        ]
+                        uncertainties = [
+                            AgentUncertainty(
+                                factor=u.get("factor", "Data Quality"),
+                                reason=u.get("reason", "Sensor boundary limit"),
+                                impact=u.get("impact", "MODERATE")
+                            )
+                            for u in parsed_json.get("uncertainties", [])
+                        ]
+                        recommendations = [
+                            AgentRecommendation(
+                                priority=r.get("priority", "HIGH"),
+                                action=r.get("action", "Inspect site sensors"),
+                                rationale=r.get("rationale", "Verified by telemetry")
+                            )
+                            for r in parsed_json.get("recommendations", [])
+                        ]
+
+                        analysis = AgentAnalysis(
+                            summary=parsed_json.get("summary", "Assessment explanation generated by Gemini intelligence layer."),
+                            risk_level=risk_level,
+                            risk_score=risk_score,
+                            confidence=confidence,
+                            trajectory=trajectory,
+                            findings=findings,
+                            uncertainties=uncertainties,
+                            recommendations=recommendations,
+                            data_mode=settings.DATA_MODE,
+                            all_evidence=evidence
+                        )
+
+                        # Cache in Upstash Redis
+                        await cache.set(
+                            cache_key,
+                            analysis.model_dump(mode="json"),
+                            ttl_seconds=settings.AI_EXPLANATION_CACHE_TTL_SECONDS
+                        )
+                        provider_health_registry.record_success("gemini-llm", latency_ms)
+                        return analysis
+
+                logger.warning(f"Gemini API returned HTTP {resp.status_code}: {resp.text[:200]}. Engaging deterministic fallback.")
+                provider_health_registry.record_failure("gemini-llm", f"HTTP {resp.status_code}")
+
         except Exception as err:
-            logger.warning(f"External LLM call failed ({err}). Falling back to deterministic analysis.")
-            return await self.mock_fallback.generate_structured_analysis(system_prompt, user_prompt, evidence, context_data)
+            logger.warning(f"Gemini generation exception ({type(err).__name__}: {err}). Engaging deterministic fallback.")
+            provider_health_registry.record_failure("gemini-llm", f"{type(err).__name__}: {err}")
+
+        # Seamless Fallback to deterministic synthesis
+        return await self.mock_fallback.generate_structured_analysis(system_prompt, user_prompt, evidence, context_data)
 
 
 def get_llm_provider() -> LLMProvider:
-    if settings.LLM_PROVIDER.lower() == "mock" or not settings.LLM_API_KEY:
-        return MockLLMProvider()
-    return HttpLLMProvider()
+    """Factory creating appropriate LLM provider based on settings."""
+    if settings.AI_MODE.upper() == "LIVE" and settings.EFFECTIVE_GEMINI_KEY:
+        return GeminiProvider(
+            api_key=settings.EFFECTIVE_GEMINI_KEY,
+            model=settings.EFFECTIVE_GEMINI_MODEL
+        )
+    return MockLLMProvider()

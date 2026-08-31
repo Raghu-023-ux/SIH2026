@@ -15,8 +15,8 @@ class DisasterAnalystAgent:
     incorporates on-ground field observations, and generates tactical monitoring recommendations.
     """
 
-    def __init__(self):
-        self.provider = get_llm_provider()
+    def __init__(self, provider: Optional[Any] = None):
+        self._custom_provider = provider
 
     async def analyze(
         self,
@@ -24,6 +24,7 @@ class DisasterAnalystAgent:
         location_id: str,
         question: Optional[str] = None
     ) -> AgentAnalysis:
+        provider = self._custom_provider or get_llm_provider()
         evidence: List[EvidenceReference] = []
 
         # 1. Fetch Location Profile
@@ -86,7 +87,7 @@ class DisasterAnalystAgent:
 
         user_prompt = question or f"Provide a complete situational analysis of landslide risk and field observations for {loc.get('name')}."
 
-        analysis = await self.provider.generate_structured_analysis(
+        analysis = await provider.generate_structured_analysis(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             evidence=evidence,
