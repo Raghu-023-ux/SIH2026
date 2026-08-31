@@ -293,7 +293,16 @@ from backend.app.schemas.scientific import (
 )
 
 
-@router.get("/{location_id}/scientific-analysis", response_model=ScientificStationInvestigationResponse)
+@router.get(
+    "/{location_id}/scientific-analysis",
+    response_model=ScientificStationInvestigationResponse,
+    tags=["Station 360 & Scientific Analytics"]
+)
+@router.get(
+    "/{location_id}/scientific-investigation",
+    response_model=ScientificStationInvestigationResponse,
+    tags=["Station 360 & Scientific Analytics"]
+)
 async def get_scientific_station_investigation(
     location_id: str,
     db: AsyncSession = Depends(get_db)

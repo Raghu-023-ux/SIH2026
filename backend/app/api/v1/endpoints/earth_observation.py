@@ -26,13 +26,16 @@ def get_bhoonidhi_status():
 
 
 @router.post("/search", response_model=EarthObservationSearchResponse)
-async def search_earth_observations(req: EarthObservationSearchRequest):
+async def search_earth_observations(
+    req: EarthObservationSearchRequest,
+    db: AsyncSession = Depends(get_db)
+):
     """
     Queries Earth Observation metadata catalog across Sentinel-1 SAR,
     CartoSat-1 CartoDEM 30m, and NISAR radar products based on STAC specifications.
     """
     provider = get_earth_observation_provider()
-    return await provider.search(req)
+    return await provider.search(req, db_session=db)
 
 
 @router.get("/location/{location_id}/acquisitions", response_model=List[EarthObservationItemResponse])
@@ -52,4 +55,5 @@ async def get_location_satellite_acquisitions(
         )
 
     provider = get_earth_observation_provider()
-    return await provider.get_acquisitions_for_location(location_id, location=location, limit=limit)
+    return await provider.get_acquisitions_for_location(location_id, location=location, limit=limit, db_session=db)
+

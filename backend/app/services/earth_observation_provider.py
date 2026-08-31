@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
+from backend.app.core.cache import cache, CacheKeys
+from backend.app.providers.health import provider_health_registry
 from backend.app.models.earth_observation import EarthObservation
 from backend.app.models.location import Location
 from backend.app.schemas.earth_observation import (
@@ -42,7 +44,11 @@ class EarthObservationProvider(ABC):
         pass
 
     @abstractmethod
-    async def search(self, request: EarthObservationSearchRequest) -> EarthObservationSearchResponse:
+    async def search(
+        self,
+        request: EarthObservationSearchRequest,
+        db_session: Optional[AsyncSession] = None
+    ) -> EarthObservationSearchResponse:
         pass
 
     @abstractmethod
@@ -50,7 +56,8 @@ class EarthObservationProvider(ABC):
         self,
         location_id: str,
         location: Optional[Location] = None,
-        limit: int = 5
+        limit: int = 5,
+        db_session: Optional[AsyncSession] = None
     ) -> List[EarthObservationItemResponse]:
         pass
 
@@ -89,7 +96,11 @@ class MockEarthObservationProvider(EarthObservationProvider):
             note="Local deterministic satellite metadata provider active. Real Earth-Observation binaries not queried.",
         )
 
-    async def search(self, request: EarthObservationSearchRequest) -> EarthObservationSearchResponse:
+    async def search(
+        self,
+        request: EarthObservationSearchRequest,
+        db_session: Optional[AsyncSession] = None
+    ) -> EarthObservationSearchResponse:
         now = datetime.now(timezone.utc)
         results: List[EarthObservationItemResponse] = []
 
@@ -141,10 +152,11 @@ class MockEarthObservationProvider(EarthObservationProvider):
         self,
         location_id: str,
         location: Optional[Location] = None,
-        limit: int = 5
+        limit: int = 5,
+        db_session: Optional[AsyncSession] = None
     ) -> List[EarthObservationItemResponse]:
         req = EarthObservationSearchRequest(location_id=location_id, limit=limit)
-        res = await self.search(req)
+        res = await self.search(req, db_session=db_session)
         return res.results
 
 
@@ -152,8 +164,9 @@ class BhoonidhiProvider(EarthObservationProvider):
     """
     Live Bhoonidhi (ISRO / NRSC) Open Data Portal API Provider.
     Implements:
-    - OAuth2 Bearer Token Authentication (/auth/token) with token reuse and rate limit awareness (20 auth/hr)
-    - STAC Catalogue Search (/data/search) with rate-limiting (3 req/sec) and in-memory TTL caching
+    - OAuth2 Bearer Token Authentication (/auth/token) with Redis token reuse and rate limit awareness (20 auth/hr)
+    - STAC Catalogue Search (/data/search) with rate-limiting (3 req/sec) and Redis TTL caching
+    - Database persistence of discovered satellite metadata in PostgreSQL
     - Explicit unconfigured detection: Never fakes a green status if credentials are missing
     """
 
@@ -165,8 +178,8 @@ class BhoonidhiProvider(EarthObservationProvider):
         self._token_expiry: Optional[datetime] = None
         self._last_auth_attempt: Optional[datetime] = None
         self._auth_count_hourly: int = 0
-        self._search_cache: Dict[str, Tuple[datetime, EarthObservationSearchResponse]] = {}
         self._last_request_time: float = 0.0
+        self.mock_fallback = MockEarthObservationProvider()
 
     def is_configured(self) -> bool:
         return bool(self.user_id and self.password)
@@ -211,7 +224,8 @@ class BhoonidhiProvider(EarthObservationProvider):
             return False
 
         now = datetime.now(timezone.utc)
-        # Token reuse: Return True if existing token is valid for at least another 5 minutes
+
+        # 1. In-memory check
         if (
             self._access_token
             and self._token_expiry
@@ -219,7 +233,20 @@ class BhoonidhiProvider(EarthObservationProvider):
         ):
             return True
 
-        # Check rate limit: 20 auths per hour
+        # 2. Redis Token Cache Check
+        token_cache_key = CacheKeys.bhoonidhi_auth_token(self.user_id or "default")
+        cached_token = await cache.get(token_cache_key)
+        if cached_token and isinstance(cached_token, dict):
+            token_str = cached_token.get("token")
+            exp_str = cached_token.get("expires_at")
+            if token_str and exp_str:
+                exp_dt = datetime.fromisoformat(exp_str)
+                if exp_dt > now + timedelta(minutes=5):
+                    self._access_token = token_str
+                    self._token_expiry = exp_dt
+                    return True
+
+        # 3. Check rate limit: 20 auths per hour
         if self._last_auth_attempt and (now - self._last_auth_attempt).total_seconds() < 3600:
             if self._auth_count_hourly >= 20:
                 logger.error("Bhoonidhi authentication rate limit reached (20 auths/hr).")
@@ -230,27 +257,47 @@ class BhoonidhiProvider(EarthObservationProvider):
         self._auth_count_hourly += 1
         self._last_auth_attempt = now
 
+        start_t = time.perf_counter()
         try:
             async with httpx.AsyncClient(timeout=8.0) as client:
                 res = await client.post(
                     f"{self.api_url}/auth/token",
                     json={"username": self.user_id, "password": self.password},
                 )
+                latency_ms = (time.perf_counter() - start_t) * 1000.0
+
                 if res.status_code == 200:
                     data = res.json()
                     self._access_token = data.get("access_token")
                     expires_in = data.get("expires_in", 3600)
                     self._token_expiry = now + timedelta(seconds=expires_in)
+
+                    # Persist in Redis with TTL
+                    await cache.set(
+                        token_cache_key,
+                        {
+                            "token": self._access_token,
+                            "expires_at": self._token_expiry.isoformat(),
+                        },
+                        ttl_seconds=max(60, expires_in - 300)
+                    )
+                    provider_health_registry.record_success("bhoonidhi-auth", latency_ms)
                     logger.info("Successfully authenticated with ISRO Bhoonidhi.")
                     return True
                 else:
                     logger.error(f"Bhoonidhi authentication failed: HTTP {res.status_code} - {res.text}")
+                    provider_health_registry.record_failure("bhoonidhi-auth", f"HTTP {res.status_code}")
                     return False
         except Exception as ex:
             logger.error(f"Bhoonidhi authentication exception: {ex}")
+            provider_health_registry.record_failure("bhoonidhi-auth", str(ex))
             return False
 
-    async def search(self, request: EarthObservationSearchRequest) -> EarthObservationSearchResponse:
+    async def search(
+        self,
+        request: EarthObservationSearchRequest,
+        db_session: Optional[AsyncSession] = None
+    ) -> EarthObservationSearchResponse:
         if not self.is_configured():
             return EarthObservationSearchResponse(
                 total_results=0,
@@ -260,8 +307,7 @@ class BhoonidhiProvider(EarthObservationProvider):
                 results=[],
             )
 
-        # Cache key lookup via unified Redis cache
-        from backend.app.core.cache import cache, CacheKeys
+        # 1. Cache key lookup via unified Redis cache
         cache_key = CacheKeys.bhoonidhi_scenes(
             collection=request.collection or "default",
             location_id=request.location_id or "all",
@@ -276,8 +322,7 @@ class BhoonidhiProvider(EarthObservationProvider):
             except Exception:
                 pass
 
-
-        # Rate limit protection: 3 requests per second
+        # 2. Rate limit protection: 3 requests per second
         curr_time = time.time()
         elapsed = curr_time - self._last_request_time
         if elapsed < 0.35:
@@ -294,9 +339,11 @@ class BhoonidhiProvider(EarthObservationProvider):
                 results=[],
             )
 
+        start_t = time.perf_counter()
+        now = datetime.now(timezone.utc)
         try:
             headers = {"Authorization": f"Bearer {self._access_token}"}
-            payload = {
+            payload: Dict[str, Any] = {
                 "collections": [request.collection] if request.collection else SUPPORTED_BHOONIDHI_COLLECTIONS[:3],
                 "limit": request.limit,
             }
@@ -309,29 +356,58 @@ class BhoonidhiProvider(EarthObservationProvider):
                     headers=headers,
                     json=payload,
                 )
+                latency_ms = (time.perf_counter() - start_t) * 1000.0
+
                 if res.status_code == 200:
                     data = res.json()
                     features = data.get("features", [])
                     results = []
                     for f in features:
                         props = f.get("properties", {})
-                        results.append(
-                            EarthObservationItemResponse(
-                                id=f.get("id", str(time.time())),
-                                location_id=request.location_id,
-                                collection=props.get("collection", request.collection or "Sentinel-1A_SAR-IW_GRD"),
-                                product_id=f.get("id", "S1A_GRD"),
-                                timestamp=datetime.fromisoformat(props.get("datetime", now.isoformat())),
-                                platform=props.get("platform", "Sentinel-1A"),
-                                instrument=props.get("instrument", "C-SAR"),
-                                processing_level=props.get("processing_level", "Level-1 GRD"),
-                                bbox=f.get("bbox"),
-                                available_online=props.get("available_online", True),
-                                source="BHOONIDHI_ISRO",
-                                metadata=props,
-                                created_at=now,
-                            )
+                        item = EarthObservationItemResponse(
+                            id=str(f.get("id", f"eo-{time.time()}")),
+                            location_id=request.location_id,
+                            collection=props.get("collection", request.collection or "Sentinel-1A_SAR-IW_GRD"),
+                            product_id=f.get("id", "S1A_GRD"),
+                            timestamp=datetime.fromisoformat(props.get("datetime", now.isoformat())),
+                            platform=props.get("platform", "Sentinel-1A"),
+                            instrument=props.get("instrument", "C-SAR"),
+                            processing_level=props.get("processing_level", "Level-1 GRD"),
+                            bbox=f.get("bbox"),
+                            available_online=props.get("available_online", True),
+                            source="BHOONIDHI_ISRO",
+                            metadata=props,
+                            created_at=now,
                         )
+                        results.append(item)
+
+                        # Persist to PostgreSQL if session is provided
+                        if db_session:
+                            try:
+                                eo_record = EarthObservation(
+                                    id=item.id,
+                                    location_id=item.location_id,
+                                    collection=item.collection,
+                                    product_id=item.product_id,
+                                    timestamp=item.timestamp,
+                                    platform=item.platform,
+                                    instrument=item.instrument,
+                                    processing_level=item.processing_level,
+                                    bbox_json=item.bbox,
+                                    available_online=item.available_online,
+                                    source=item.source,
+                                    metadata_json=item.metadata,
+                                    created_at=now,
+                                )
+                                db_session.add(eo_record)
+                            except Exception:
+                                pass
+
+                    if db_session:
+                        try:
+                            await db_session.commit()
+                        except Exception:
+                            pass
 
                     response = EarthObservationSearchResponse(
                         total_results=len(results),
@@ -345,9 +421,11 @@ class BhoonidhiProvider(EarthObservationProvider):
                         response.model_dump(mode="json"),
                         ttl_seconds=settings.BHOONIDHI_CACHE_TTL_SECONDS
                     )
+                    provider_health_registry.record_success("bhoonidhi-stac", latency_ms)
                     return response
                 else:
                     logger.error(f"Bhoonidhi search failed: HTTP {res.status_code} - {res.text}")
+                    provider_health_registry.record_failure("bhoonidhi-stac", f"HTTP {res.status_code}")
                     return EarthObservationSearchResponse(
                         total_results=0,
                         provider="BhoonidhiProvider",
@@ -357,6 +435,7 @@ class BhoonidhiProvider(EarthObservationProvider):
                     )
         except Exception as ex:
             logger.error(f"Bhoonidhi search exception: {ex}")
+            provider_health_registry.record_failure("bhoonidhi-stac", str(ex))
             return EarthObservationSearchResponse(
                 total_results=0,
                 provider="BhoonidhiProvider",
@@ -369,7 +448,8 @@ class BhoonidhiProvider(EarthObservationProvider):
         self,
         location_id: str,
         location: Optional[Location] = None,
-        limit: int = 5
+        limit: int = 5,
+        db_session: Optional[AsyncSession] = None
     ) -> List[EarthObservationItemResponse]:
         bbox = None
         if location and location.latitude and location.longitude:
@@ -381,7 +461,7 @@ class BhoonidhiProvider(EarthObservationProvider):
             bbox=bbox,
             limit=limit
         )
-        res = await self.search(req)
+        res = await self.search(req, db_session=db_session)
         return res.results
 
 

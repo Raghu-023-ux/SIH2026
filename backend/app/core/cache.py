@@ -26,8 +26,13 @@ class CacheKeys:
         return f"weather:forecast:{location_id}"
 
     @staticmethod
+    def bhoonidhi_auth_token(user_id: str) -> str:
+        return f"bhoonidhi:auth_token:{user_id}"
+
+    @staticmethod
     def bhoonidhi_scenes(collection: str, location_id: str, limit: int) -> str:
         return f"bhoonidhi:scenes:{collection}:{location_id}:{limit}"
+
 
     @staticmethod
     def terrain_static(location_id: str) -> str:
