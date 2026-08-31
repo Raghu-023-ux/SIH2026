@@ -195,15 +195,20 @@ class BroadcastStatusResponse(BaseModel):
     target_type: str
     created_at: datetime
     total_recipients: int
-    in_app_sent: int
-    in_app_failed: int
-    in_app_pending: int
-    sms_sent: int
-    sms_failed: int
-    sms_pending: int
+    in_app_sent: int = 0
+    in_app_failed: int = 0
+    in_app_pending: int = 0
+    sms_sent: int = 0
+    sms_failed: int = 0
+    sms_pending: int = 0
+    fcm_sent: int = 0
+    fcm_failed: int = 0
+    fcm_pending: int = 0
     notifications: List[NotificationItemResponse] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
+
+
 
 
 class BroadcastCreateResponse(BaseModel):

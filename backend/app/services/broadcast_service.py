@@ -7,8 +7,11 @@ from fastapi import HTTPException, status
 
 from backend.app.models.alerting import Broadcast, Notification
 from backend.app.models.field import FieldTeam, OperationalMessage
+from backend.app.models.device import DeviceToken
 from backend.app.schemas.alerting import BroadcastCreate, BroadcastStatusResponse, NotificationItemResponse
 from backend.app.services.sms_provider import get_sms_provider, SMSProvider
+from backend.app.services.fcm_provider import get_fcm_provider, FCMProvider
+from backend.app.services.device_service import DeviceService
 
 logger = logging.getLogger("broadcast_service")
 
@@ -16,7 +19,7 @@ logger = logging.getLogger("broadcast_service")
 class BroadcastService:
     """
     Core emergency broadcast orchestration service.
-    Dispatches critical alerts asynchronously across In-App and SMS channels with provider abstraction.
+    Dispatches critical alerts asynchronously across In-App, SMS, and Firebase FCM channels with provider abstractions.
     """
 
     @staticmethod
@@ -115,11 +118,150 @@ class BroadcastService:
                     )
                 )
 
+        # 5. FCM Push Delivery Channel
+        if any(c in requested_channels for c in ["FCM", "PUSH", "IN_APP_PUSH"]):
+            # Resolve registered active device tokens matching target
+            active_devices = await DeviceService.get_active_devices_by_target(
+                session=session,
+                target_type=req.target_type,
+                target_filter=req.target_filter,
+                limit=100
+            )
+
+            if active_devices:
+                for dev in active_devices:
+                    notifications_to_create.append(
+                        Notification(
+                            broadcast_id=broadcast.id,
+                            recipient_id=f"device:{dev.id}:{dev.fcm_token}",
+                            channel="FCM",
+                            status="QUEUED",
+                            created_at=datetime.now(timezone.utc),
+                        )
+                    )
+            else:
+                # Add topic broadcast notification for regional fallback
+                target_topic = f"region_{req.target_type.lower()}"
+                notifications_to_create.append(
+                    Notification(
+                        broadcast_id=broadcast.id,
+                        recipient_id=f"topic:{target_topic}",
+                        channel="FCM",
+                        status="QUEUED",
+                        created_at=datetime.now(timezone.utc),
+                    )
+                )
+
         session.add_all(notifications_to_create)
         await session.commit()
         await session.refresh(broadcast)
 
         return broadcast
+
+    @staticmethod
+    async def process_broadcast(
+        session: AsyncSession,
+        broadcast_id: str,
+    ):
+        """
+        Executes notification dispatch across all channels for a given broadcast ID using the provided session.
+        """
+        sms_provider = get_sms_provider()
+        fcm_provider = get_fcm_provider()
+
+        stmt = select(Broadcast).where(Broadcast.id == broadcast_id)
+        res = await session.execute(stmt)
+        broadcast = res.scalar_one_or_none()
+        if not broadcast:
+            logger.error(f"Broadcast {broadcast_id} not found for processing")
+            return
+
+        notif_stmt = select(Notification).where(
+            Notification.broadcast_id == broadcast_id,
+            Notification.status == "QUEUED",
+        )
+        n_res = await session.execute(notif_stmt)
+        notifications = n_res.scalars().all()
+
+        for notif in notifications:
+            now = datetime.now(timezone.utc)
+            if notif.channel == "IN_APP":
+                try:
+                    op_msg = OperationalMessage(
+                        event_id=broadcast.event_id,
+                        sender_id=broadcast.sender_id,
+                        recipient_team=notif.recipient_id,
+                        priority="URGENT" if broadcast.priority in ["URGENT", "CRITICAL"] else "NORMAL",
+                        message=f"[{broadcast.title}] {broadcast.message}",
+                        created_at=now,
+                    )
+                    session.add(op_msg)
+                    notif.status = "SENT"
+                    notif.sent_at = now
+                except Exception as e:
+                    notif.status = "FAILED"
+                    notif.failure_reason = str(e)
+            elif notif.channel == "SMS":
+                try:
+                    phone = notif.recipient_id.split("(")[-1].rstrip(")") if "(" in notif.recipient_id else notif.recipient_id
+                    sms_res = await sms_provider.send_sms(
+                        phone_number=phone,
+                        message=f"EMERGENCY ALERT [{broadcast.priority}]: {broadcast.title} - {broadcast.message}",
+                        sender_id=broadcast.sender_id,
+                        priority=broadcast.priority,
+                    )
+                    if sms_res.get("status") in ["SENT", "DELIVERED"]:
+                        notif.status = "SENT"
+                        notif.sent_at = now
+                    else:
+                        notif.status = "FAILED"
+                        notif.failure_reason = sms_res.get("failure_reason", "SMS gateway error")
+                except Exception as e:
+                    notif.status = "FAILED"
+                    notif.failure_reason = str(e)
+            elif notif.channel in ["FCM", "PUSH"]:
+                try:
+                    fcm_data = {
+                        "broadcast_id": str(broadcast.id),
+                        "event_id": str(broadcast.event_id or ""),
+                        "priority": str(broadcast.priority),
+                    }
+                    if notif.recipient_id.startswith("topic:"):
+                        topic_name = notif.recipient_id.split("topic:")[-1]
+                        fcm_res = await fcm_provider.send_to_topic(
+                            topic=topic_name,
+                            title=broadcast.title,
+                            body=broadcast.message,
+                            data=fcm_data,
+                            priority=broadcast.priority,
+                        )
+                    else:
+                        fcm_token = notif.recipient_id.split(":")[-1] if "device:" in notif.recipient_id else notif.recipient_id
+                        fcm_res = await fcm_provider.send_to_token(
+                            fcm_token=fcm_token,
+                            title=broadcast.title,
+                            body=broadcast.message,
+                            data=fcm_data,
+                            priority=broadcast.priority,
+                        )
+
+                    if fcm_res.get("status") == "SENT_TO_FCM":
+                        notif.status = "SENT"
+                        notif.sent_at = now
+                    elif fcm_res.get("status") == "TOKEN_INVALID":
+                        notif.status = "FAILED"
+                        notif.failure_reason = "TOKEN_INVALID"
+                        fcm_token = notif.recipient_id.split(":")[-1] if "device:" in notif.recipient_id else notif.recipient_id
+                        await DeviceService.deactivate_token(session, fcm_token, reason="TOKEN_INVALID")
+                    else:
+                        notif.status = "FAILED"
+                        notif.failure_reason = fcm_res.get("failure_reason", "FCM delivery error")
+                except Exception as e:
+                    notif.status = "FAILED"
+                    notif.failure_reason = str(e)
+
+        await session.commit()
+        logger.info(f"Broadcast {broadcast_id} completed processing {len(notifications)} notifications.")
 
     @staticmethod
     async def process_broadcast_background(
@@ -129,64 +271,9 @@ class BroadcastService:
         """
         Background task to process queued notifications asynchronously.
         """
-        sms_provider = get_sms_provider()
-        
         async with session_factory() as session:
-            # Fetch broadcast and pending notifications
-            stmt = select(Broadcast).where(Broadcast.id == broadcast_id)
-            res = await session.execute(stmt)
-            broadcast = res.scalar_one_or_none()
-            if not broadcast:
-                logger.error(f"Broadcast {broadcast_id} not found for background processing")
-                return
+            await BroadcastService.process_broadcast(session, broadcast_id)
 
-            notif_stmt = select(Notification).where(
-                Notification.broadcast_id == broadcast_id,
-                Notification.status == "QUEUED",
-            )
-            n_res = await session.execute(notif_stmt)
-            notifications = n_res.scalars().all()
-
-            for notif in notifications:
-                now = datetime.now(timezone.utc)
-                if notif.channel == "IN_APP":
-                    try:
-                        # Also create an OperationalMessage for field teams
-                        op_msg = OperationalMessage(
-                            event_id=broadcast.event_id,
-                            sender_id=broadcast.sender_id,
-                            recipient_team=notif.recipient_id,
-                            priority="URGENT" if broadcast.priority in ["URGENT", "CRITICAL"] else "NORMAL",
-                            message=f"[{broadcast.title}] {broadcast.message}",
-                            created_at=now,
-                        )
-                        session.add(op_msg)
-                        notif.status = "SENT"
-                        notif.sent_at = now
-                    except Exception as e:
-                        notif.status = "FAILED"
-                        notif.failure_reason = str(e)
-                elif notif.channel == "SMS":
-                    try:
-                        phone = notif.recipient_id.split("(")[-1].rstrip(")") if "(" in notif.recipient_id else notif.recipient_id
-                        sms_res = await sms_provider.send_sms(
-                            phone_number=phone,
-                            message=f"EMERGENCY ALERT [{broadcast.priority}]: {broadcast.title} - {broadcast.message}",
-                            sender_id=broadcast.sender_id,
-                            priority=broadcast.priority,
-                        )
-                        if sms_res.get("status") in ["SENT", "DELIVERED"]:
-                            notif.status = "SENT"
-                            notif.sent_at = now
-                        else:
-                            notif.status = "FAILED"
-                            notif.failure_reason = sms_res.get("failure_reason", "SMS gateway error")
-                    except Exception as e:
-                        notif.status = "FAILED"
-                        notif.failure_reason = str(e)
-
-            await session.commit()
-            logger.info(f"Broadcast {broadcast_id} completed processing {len(notifications)} notifications.")
 
     @staticmethod
     async def get_broadcast_status(
@@ -214,6 +301,10 @@ class BroadcastService:
         sms_failed = sum(1 for n in notifs if n.channel == "SMS" and n.status == "FAILED")
         sms_pending = sum(1 for n in notifs if n.channel == "SMS" and n.status == "QUEUED")
 
+        fcm_sent = sum(1 for n in notifs if n.channel in ["FCM", "PUSH"] and n.status in ["SENT", "DELIVERED"])
+        fcm_failed = sum(1 for n in notifs if n.channel in ["FCM", "PUSH"] and n.status == "FAILED")
+        fcm_pending = sum(1 for n in notifs if n.channel in ["FCM", "PUSH"] and n.status == "QUEUED")
+
         return BroadcastStatusResponse(
             id=broadcast.id,
             event_id=broadcast.event_id,
@@ -230,5 +321,8 @@ class BroadcastService:
             sms_sent=sms_sent,
             sms_failed=sms_failed,
             sms_pending=sms_pending,
+            fcm_sent=fcm_sent,
+            fcm_failed=fcm_failed,
+            fcm_pending=fcm_pending,
             notifications=[NotificationItemResponse.model_validate(n) for n in notifs],
         )

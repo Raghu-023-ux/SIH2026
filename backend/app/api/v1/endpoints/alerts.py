@@ -113,13 +113,15 @@ async def create_and_dispatch_broadcast(
     }
 
 
+@router.get("/broadcasts/{broadcast_id}", response_model=BroadcastStatusResponse)
 @router.get("/broadcasts/{broadcast_id}/status", response_model=BroadcastStatusResponse)
 async def get_broadcast_delivery_status(
     broadcast_id: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """Retrieves real-time recipient delivery breakdown (In-App sent/failed, SMS sent/failed/pending)."""
+    """Retrieves real-time recipient delivery breakdown (In-App, SMS, and FCM push sent/failed/pending)."""
     return await BroadcastService.get_broadcast_status(db, broadcast_id)
+
 
 
 @router.get("/sitrep/{event_id}", response_model=SituationReportDetail)

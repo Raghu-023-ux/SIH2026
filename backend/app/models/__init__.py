@@ -18,7 +18,10 @@ from backend.app.models.public import (
 from backend.app.models.alerting import (
     NotificationDispatchLog,
     SituationReport,
+    Broadcast,
+    Notification,
 )
+from backend.app.models.device import DeviceToken
 from backend.app.models.analytics import (
     HistoricalDisasterIncident,
     ModelEvaluationRun,
@@ -40,6 +43,10 @@ __all__ = [
     "PublicAlertAcknowledgment",
     "NotificationDispatchLog",
     "SituationReport",
+    "Broadcast",
+    "Notification",
+    "DeviceToken",
     "HistoricalDisasterIncident",
     "ModelEvaluationRun",
 ]
+

@@ -84,6 +84,13 @@ class Settings(BaseSettings):
     def EFFECTIVE_GEMINI_MODEL(self) -> str:
         return self.GEMINI_MODEL or self.LLM_MODEL or "gemini-3.6-flash"
 
+    # --- Firebase Cloud Messaging (FCM) Configuration ---
+    FIREBASE_PROJECT_ID: str = "studio-4032992257-84f15"
+    FIREBASE_CREDENTIALS_PATH: Optional[str] = None
+    FIREBASE_CREDENTIALS_JSON: Optional[str] = None
+    FIREBASE_PROVIDER_MODE: str = "MOCK"  # "LIVE" or "MOCK"
+    FIREBASE_APP_NAME: str = "sih-landslide-fcm"
+
     # CORS origins
     BACKEND_CORS_ORIGINS: List[str] = [
         "http://localhost:3000",

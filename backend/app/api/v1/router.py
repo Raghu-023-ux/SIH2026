@@ -15,6 +15,7 @@ from backend.app.api.v1.endpoints import (
     alerts,
     analytics,
     earth_observation,
+    notifications,
 )
 
 api_router = APIRouter()
@@ -32,5 +33,7 @@ api_router.include_router(ai.router, prefix="/ai", tags=["Agentic AI Intelligenc
 api_router.include_router(field.router, prefix="/field", tags=["Field Operations & Rescue"])
 api_router.include_router(public.router, prefix="/public", tags=["Public Disaster Alerts & Safety"])
 api_router.include_router(alerts.router, prefix="/alerts", tags=["CAP Feeds, SitReps & Multi-Channel Alerting"])
+api_router.include_router(notifications.router, prefix="/notifications", tags=["Push Notifications & FCM Device Registry"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["Historical Analytics, Playback & Calibration"])
 api_router.include_router(earth_observation.router, prefix="/earth-observation", tags=["Earth Observation & Bhoonidhi"])
+
