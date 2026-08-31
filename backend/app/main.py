@@ -59,13 +59,21 @@ async def global_exception_handler(request: Request, exc: Exception):
 @app.get("/health", tags=["Health"])
 async def health_check():
     """
-    Health check endpoint returning system status and service details.
+    Health check endpoint returning system status, database reachability, and service details.
     """
+    from backend.app.core.database import check_database_health
+    db_health = await check_database_health()
     return {
-        "status": "healthy",
+        "status": "healthy" if db_health["reachable"] else "degraded",
         "service": settings.PROJECT_NAME,
         "version": settings.VERSION,
         "environment": settings.ENVIRONMENT,
+        "application_mode": settings.DATA_MODE,
+        "database": {
+            "reachable": db_health["reachable"],
+            "engine": db_health["engine"],
+            "latency_ms": db_health["latency_ms"],
+        },
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "disclaimer": "Landslide risk calculation formulas represent a prototype analytical model."
     }

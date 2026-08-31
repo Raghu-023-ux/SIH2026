@@ -10,6 +10,7 @@ from backend.app.models.location import Location
 from backend.app.models.event import DisasterEvent
 from backend.app.models.alerting import NotificationDispatchLog
 from backend.app.core.config import settings
+from backend.app.core.database import check_database_health, is_sqlite
 
 router = APIRouter()
 
@@ -20,31 +21,67 @@ async def liveness_probe():
     return {
         "status": "ALIVE",
         "service": "SIH26001 Disaster Intelligence Engine",
+        "environment": settings.ENVIRONMENT,
+        "application_mode": settings.DATA_MODE,
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
+
+
+@router.get("/db", tags=["Health & Readiness"])
+async def database_health_check():
+    """
+    Dedicated database health endpoint.
+    Verifies database reachability, measured round-trip latency, and application mode.
+    Exposes NO credentials or connection strings.
+    """
+    db_health = await check_database_health()
+    status_code = status.HTTP_200_OK if db_health["reachable"] else status.HTTP_503_SERVICE_UNAVAILABLE
+    
+    payload = {
+        "database_reachable": db_health["reachable"],
+        "database_engine": db_health["engine"],
+        "database_latency_ms": db_health["latency_ms"],
+        "application_mode": settings.DATA_MODE,
+        "environment": settings.ENVIRONMENT,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+    if not db_health["reachable"]:
+        payload["error"] = db_health.get("error", "Database unreachable")
+
+    return Response(
+        content=__import__("json").dumps(payload),
+        status_code=status_code,
+        media_type="application/json"
+    )
 
 
 @router.get("/ready", tags=["Health & Readiness"])
 async def readiness_probe(db: AsyncSession = Depends(get_db)):
     """Kubernetes / Container Readiness Probe verifying database & pipeline health."""
+    start_t = time.perf_counter()
     try:
-        # Check database connectivity
+        # Check database connectivity & statistics
         loc_count = (await db.execute(select(func.count(Location.id)))).scalar_one()
         active_events = (await db.execute(
             select(func.count(DisasterEvent.id)).where(DisasterEvent.status != "RESOLVED")
         )).scalar_one()
+        latency_ms = round((time.perf_counter() - start_t) * 1000, 2)
 
         return {
             "status": "READY",
             "database": "CONNECTED",
+            "database_engine": "sqlite" if is_sqlite else "postgresql",
+            "database_latency_ms": latency_ms,
             "locations_monitored": loc_count,
             "active_events": active_events,
-            "data_mode": settings.DATA_MODE,
+            "application_mode": settings.DATA_MODE,
+            "environment": settings.ENVIRONMENT,
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
     except Exception as e:
+        latency_ms = round((time.perf_counter() - start_t) * 1000, 2)
         return Response(
-            content=f'{{"status": "NOT_READY", "error": "{str(e)}"}}',
+            content=f'{{"status": "NOT_READY", "database": "DISCONNECTED", "database_latency_ms": {latency_ms}, "application_mode": "{settings.DATA_MODE}", "error": "Database connection failed"}}',
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             media_type="application/json"
         )

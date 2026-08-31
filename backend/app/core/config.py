@@ -13,6 +13,24 @@ class Settings(BaseSettings):
 
     # Database: defaults to SQLite for local runs; overridden by PostgreSQL URL in production/docker
     DATABASE_URL: str = "sqlite+aiosqlite:///./sih_disaster.db"
+    DIRECT_URL: Optional[str] = None
+    DB_POOL_SIZE: int = 10
+    DB_MAX_OVERFLOW: int = 5
+    DB_POOL_TIMEOUT: float = 30.0
+    DB_POOL_RECYCLE: int = 1800
+    DB_ECHO: bool = False
+    DB_SSL_MODE: str = "prefer"  # "disable", "prefer", "require"
+
+    @property
+    def ASYNC_DATABASE_URL(self) -> str:
+        """Ensures the database connection URL uses an async dialect."""
+        url = self.DATABASE_URL
+        if url.startswith("postgres://"):
+            return url.replace("postgres://", "postgresql+asyncpg://", 1)
+        if url.startswith("postgresql://") and not url.startswith("postgresql+asyncpg://"):
+            return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
+
     REDIS_URL: str = "redis://localhost:6379/0"
 
     # Ingestion & Data Mode: "LIVE" (Open-Meteo with fallback) or "SIMULATION" (deterministic scenarios)
