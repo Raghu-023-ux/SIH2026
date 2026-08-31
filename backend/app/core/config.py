@@ -91,6 +91,13 @@ class Settings(BaseSettings):
     FIREBASE_PROVIDER_MODE: str = "MOCK"  # "LIVE" or "MOCK"
     FIREBASE_APP_NAME: str = "sih-landslide-fcm"
 
+    # --- Resend Email Notification Configuration ---
+    RESEND_API_KEY: Optional[str] = None
+    RESEND_FROM_EMAIL: str = "onboarding@resend.dev"
+    RESEND_PROVIDER_MODE: str = "MOCK"  # "LIVE" or "MOCK"
+    APP_BASE_URL: str = "http://localhost:3000"
+
+
     # CORS origins
     BACKEND_CORS_ORIGINS: List[str] = [
         "http://localhost:3000",

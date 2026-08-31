@@ -11,6 +11,8 @@ from backend.app.models.device import DeviceToken
 from backend.app.schemas.alerting import BroadcastCreate, BroadcastStatusResponse, NotificationItemResponse
 from backend.app.services.sms_provider import get_sms_provider, SMSProvider
 from backend.app.services.fcm_provider import get_fcm_provider, FCMProvider
+from backend.app.services.email_provider import get_email_provider, EmailProvider
+from backend.app.services.email_templates import email_template_renderer
 from backend.app.services.device_service import DeviceService
 
 logger = logging.getLogger("broadcast_service")
@@ -19,7 +21,7 @@ logger = logging.getLogger("broadcast_service")
 class BroadcastService:
     """
     Core emergency broadcast orchestration service.
-    Dispatches critical alerts asynchronously across In-App, SMS, and Firebase FCM channels with provider abstractions.
+    Dispatches critical alerts asynchronously across In-App, SMS, Firebase FCM, and Resend Email channels.
     """
 
     @staticmethod
@@ -120,7 +122,6 @@ class BroadcastService:
 
         # 5. FCM Push Delivery Channel
         if any(c in requested_channels for c in ["FCM", "PUSH", "IN_APP_PUSH"]):
-            # Resolve registered active device tokens matching target
             active_devices = await DeviceService.get_active_devices_by_target(
                 session=session,
                 target_type=req.target_type,
@@ -140,13 +141,34 @@ class BroadcastService:
                         )
                     )
             else:
-                # Add topic broadcast notification for regional fallback
                 target_topic = f"region_{req.target_type.lower()}"
                 notifications_to_create.append(
                     Notification(
                         broadcast_id=broadcast.id,
                         recipient_id=f"topic:{target_topic}",
                         channel="FCM",
+                        status="QUEUED",
+                        created_at=datetime.now(timezone.utc),
+                    )
+                )
+
+        # 6. Resend Email Delivery Channel
+        if any(c in requested_channels for c in ["EMAIL", "RESEND", "EMAIL_BULLETIN"]):
+            custom_emails = (req.target_filter or {}).get("emails", [])
+            if custom_emails and isinstance(custom_emails, list):
+                email_recipients = custom_emails
+            else:
+                email_recipients = [
+                    "duty.officer@sikkim.gov.in",
+                    "sdma.response@ner.gov.in",
+                ]
+
+            for em in email_recipients:
+                notifications_to_create.append(
+                    Notification(
+                        broadcast_id=broadcast.id,
+                        recipient_id=em,
+                        channel="EMAIL",
                         status="QUEUED",
                         created_at=datetime.now(timezone.utc),
                     )
@@ -168,6 +190,7 @@ class BroadcastService:
         """
         sms_provider = get_sms_provider()
         fcm_provider = get_fcm_provider()
+        email_provider = get_email_provider()
 
         stmt = select(Broadcast).where(Broadcast.id == broadcast_id)
         res = await session.execute(stmt)
@@ -259,6 +282,30 @@ class BroadcastService:
                 except Exception as e:
                     notif.status = "FAILED"
                     notif.failure_reason = str(e)
+            elif notif.channel in ["EMAIL", "RESEND", "EMAIL_BULLETIN"]:
+                try:
+                    rendered = email_template_renderer.render_broadcast(
+                        title=broadcast.title,
+                        message=broadcast.message,
+                        priority=broadcast.priority,
+                        sender_id=broadcast.sender_id,
+                        event_id=broadcast.event_id,
+                    )
+                    email_res = await email_provider.send_email(
+                        to=notif.recipient_id,
+                        subject=rendered["subject"],
+                        html_body=rendered["html"],
+                        text_body=rendered["text"],
+                    )
+                    if email_res.get("status") == "SENT_TO_PROVIDER":
+                        notif.status = "SENT"
+                        notif.sent_at = now
+                    else:
+                        notif.status = "FAILED"
+                        notif.failure_reason = email_res.get("failure_reason", "Email delivery error")
+                except Exception as e:
+                    notif.status = "FAILED"
+                    notif.failure_reason = str(e)
 
         await session.commit()
         logger.info(f"Broadcast {broadcast_id} completed processing {len(notifications)} notifications.")
@@ -273,7 +320,6 @@ class BroadcastService:
         """
         async with session_factory() as session:
             await BroadcastService.process_broadcast(session, broadcast_id)
-
 
     @staticmethod
     async def get_broadcast_status(
@@ -305,6 +351,10 @@ class BroadcastService:
         fcm_failed = sum(1 for n in notifs if n.channel in ["FCM", "PUSH"] and n.status == "FAILED")
         fcm_pending = sum(1 for n in notifs if n.channel in ["FCM", "PUSH"] and n.status == "QUEUED")
 
+        email_sent = sum(1 for n in notifs if n.channel in ["EMAIL", "RESEND", "EMAIL_BULLETIN"] and n.status in ["SENT", "DELIVERED"])
+        email_failed = sum(1 for n in notifs if n.channel in ["EMAIL", "RESEND", "EMAIL_BULLETIN"] and n.status == "FAILED")
+        email_pending = sum(1 for n in notifs if n.channel in ["EMAIL", "RESEND", "EMAIL_BULLETIN"] and n.status == "QUEUED")
+
         return BroadcastStatusResponse(
             id=broadcast.id,
             event_id=broadcast.event_id,
@@ -324,5 +374,8 @@ class BroadcastService:
             fcm_sent=fcm_sent,
             fcm_failed=fcm_failed,
             fcm_pending=fcm_pending,
+            email_sent=email_sent,
+            email_failed=email_failed,
+            email_pending=email_pending,
             notifications=[NotificationItemResponse.model_validate(n) for n in notifs],
         )

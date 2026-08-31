@@ -204,9 +204,13 @@ class BroadcastStatusResponse(BaseModel):
     fcm_sent: int = 0
     fcm_failed: int = 0
     fcm_pending: int = 0
+    email_sent: int = 0
+    email_failed: int = 0
+    email_pending: int = 0
     notifications: List[NotificationItemResponse] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
+
 
 
 
