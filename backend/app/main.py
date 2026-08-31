@@ -62,9 +62,11 @@ async def health_check():
     Health check endpoint returning system status, database reachability, and service details.
     """
     from backend.app.core.database import check_database_health
+    from backend.app.core.redis import redis_service
     db_health = await check_database_health()
+    cache_health = await redis_service.check_health()
     return {
-        "status": "healthy" if db_health["reachable"] else "degraded",
+        "status": "healthy" if (db_health["reachable"] and cache_health["reachable"]) else "degraded",
         "service": settings.PROJECT_NAME,
         "version": settings.VERSION,
         "environment": settings.ENVIRONMENT,
@@ -73,6 +75,12 @@ async def health_check():
             "reachable": db_health["reachable"],
             "engine": db_health["engine"],
             "latency_ms": db_health["latency_ms"],
+        },
+        "cache": {
+            "reachable": cache_health["reachable"],
+            "backend": cache_health.get("backend", "in_memory"),
+            "mode": cache_health.get("mode", "LOCAL_MEMORY"),
+            "latency_ms": cache_health.get("latency_ms", 0.0),
         },
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "disclaimer": "Landslide risk calculation formulas represent a prototype analytical model."

@@ -55,10 +55,43 @@ async def database_health_check():
     )
 
 
+@router.get("/redis", tags=["Health & Readiness"])
+@router.get("/cache", tags=["Health & Readiness"])
+async def cache_health_check():
+    """
+    Dedicated Redis / Upstash cache health endpoint.
+    Verifies cache reachability, measured round-trip latency, and backend mode.
+    Exposes NO credentials, tokens, or private URLs.
+    """
+    from backend.app.core.redis import redis_service
+    cache_health = await redis_service.check_health()
+    status_code = status.HTTP_200_OK if cache_health["reachable"] else status.HTTP_503_SERVICE_UNAVAILABLE
+    
+    payload = {
+        "cache_reachable": cache_health["reachable"],
+        "cache_backend": cache_health.get("backend", "in_memory"),
+        "cache_mode": cache_health.get("mode", "LOCAL_MEMORY"),
+        "cache_latency_ms": cache_health.get("latency_ms", 0.0),
+        "application_mode": settings.DATA_MODE,
+        "environment": settings.ENVIRONMENT,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+    if not cache_health["reachable"]:
+        payload["error"] = cache_health.get("error", "Cache unavailable")
+
+    return Response(
+        content=__import__("json").dumps(payload),
+        status_code=status_code,
+        media_type="application/json"
+    )
+
+
 @router.get("/ready", tags=["Health & Readiness"])
 async def readiness_probe(db: AsyncSession = Depends(get_db)):
-    """Kubernetes / Container Readiness Probe verifying database & pipeline health."""
+    """Kubernetes / Container Readiness Probe verifying database, cache & pipeline health."""
     start_t = time.perf_counter()
+    from backend.app.core.redis import redis_service
+    cache_health = await redis_service.check_health()
     try:
         # Check database connectivity & statistics
         loc_count = (await db.execute(select(func.count(Location.id)))).scalar_one()
@@ -72,6 +105,9 @@ async def readiness_probe(db: AsyncSession = Depends(get_db)):
             "database": "CONNECTED",
             "database_engine": "sqlite" if is_sqlite else "postgresql",
             "database_latency_ms": latency_ms,
+            "cache": "CONNECTED" if cache_health["reachable"] else "FALLBACK_MEMORY",
+            "cache_backend": cache_health.get("backend", "in_memory"),
+            "cache_latency_ms": cache_health.get("latency_ms", 0.0),
             "locations_monitored": loc_count,
             "active_events": active_events,
             "application_mode": settings.DATA_MODE,
@@ -81,7 +117,7 @@ async def readiness_probe(db: AsyncSession = Depends(get_db)):
     except Exception as e:
         latency_ms = round((time.perf_counter() - start_t) * 1000, 2)
         return Response(
-            content=f'{{"status": "NOT_READY", "database": "DISCONNECTED", "database_latency_ms": {latency_ms}, "application_mode": "{settings.DATA_MODE}", "error": "Database connection failed"}}',
+            content=f'{{"status": "NOT_READY", "database": "DISCONNECTED", "database_latency_ms": {latency_ms}, "cache": "FALLBACK_MEMORY", "application_mode": "{settings.DATA_MODE}", "error": "Database connection failed"}}',
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             media_type="application/json"
         )

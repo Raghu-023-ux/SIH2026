@@ -260,14 +260,22 @@ class BhoonidhiProvider(EarthObservationProvider):
                 results=[],
             )
 
-        # Cache key lookup
-        cache_key = f"{request.collection}_{request.location_id}_{request.limit}"
-        now = datetime.now(timezone.utc)
-        if cache_key in self._search_cache:
-            ts, cached_resp = self._search_cache[cache_key]
-            if (now - ts).total_seconds() < settings.BHOONIDHI_CACHE_TTL_SECONDS:
+        # Cache key lookup via unified Redis cache
+        from backend.app.core.cache import cache, CacheKeys
+        cache_key = CacheKeys.bhoonidhi_scenes(
+            collection=request.collection or "default",
+            location_id=request.location_id or "all",
+            limit=request.limit or 10
+        )
+        cached_data = await cache.get(cache_key)
+        if cached_data:
+            try:
+                cached_resp = EarthObservationSearchResponse(**cached_data)
                 cached_resp.cached = True
                 return cached_resp
+            except Exception:
+                pass
+
 
         # Rate limit protection: 3 requests per second
         curr_time = time.time()
@@ -332,7 +340,11 @@ class BhoonidhiProvider(EarthObservationProvider):
                         cached=False,
                         results=results,
                     )
-                    self._search_cache[cache_key] = (now, response)
+                    await cache.set(
+                        cache_key,
+                        response.model_dump(mode="json"),
+                        ttl_seconds=settings.BHOONIDHI_CACHE_TTL_SECONDS
+                    )
                     return response
                 else:
                     logger.error(f"Bhoonidhi search failed: HTTP {res.status_code} - {res.text}")

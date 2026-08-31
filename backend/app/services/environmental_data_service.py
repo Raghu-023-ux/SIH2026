@@ -25,7 +25,7 @@ from backend.app.engine.base import (
     QualityStatus,
 )
 from backend.app.engine.data_validator import data_validator
-from backend.app.core.cache import cache
+from backend.app.core.cache import cache, CacheKeys
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
 
@@ -93,7 +93,7 @@ class EnvironmentalDataService:
         Tier 4: Simulation Fallback (Mock Provider)
         Returns: (observations, source_name, is_live)
         """
-        cache_key = f"weather_obs:{location.id}"
+        cache_key = CacheKeys.weather_live(location.id)
         is_live = settings.DATA_MODE == "LIVE"
 
         # Tier 1 & Tier 2: Check Cache and DB when not forcing a fresh fetch

@@ -31,7 +31,12 @@ class Settings(BaseSettings):
             return url.replace("postgresql://", "postgresql+asyncpg://", 1)
         return url
 
-    REDIS_URL: str = "redis://localhost:6379/0"
+    # Redis / Upstash Redis Configuration
+    REDIS_URL: Optional[str] = "redis://localhost:6379/0"
+    UPSTASH_REDIS_REST_URL: Optional[str] = None
+    UPSTASH_REDIS_REST_TOKEN: Optional[str] = None
+    REDIS_CACHE_ENABLED: bool = True
+    REDIS_TIMEOUT_SECONDS: float = 3.0
 
     # Ingestion & Data Mode: "LIVE" (Open-Meteo with fallback) or "SIMULATION" (deterministic scenarios)
     DATA_MODE: str = "LIVE"
@@ -41,14 +46,19 @@ class Settings(BaseSettings):
     WEATHER_REQUEST_TIMEOUT_SECONDS: float = 7.0
     WEATHER_MAX_RETRIES: int = 2
     WEATHER_BACKOFF_FACTOR: float = 0.5
-    WEATHER_CACHE_TTL_SECONDS: int = 600  # 10 minutes cache
+    
+    # Granular Cache TTL Strategy (Seconds)
+    WEATHER_CACHE_TTL_SECONDS: int = 300            # 5 mins for live weather observation
+    WEATHER_FORECAST_CACHE_TTL_SECONDS: int = 900   # 15 mins for forecast timelines
+    BHOONIDHI_CACHE_TTL_SECONDS: int = 1800         # 30 mins for satellite metadata
+    HISTORICAL_CACHE_TTL_SECONDS: int = 43200       # 12 hours for historical incident records
+    TERRAIN_CACHE_TTL_SECONDS: int = 86400          # 24 hours for static DEM & susceptibility
 
     # --- Earth Observation & Bhoonidhi (ISRO / NRSC) Configuration ---
     BHOONIDHI_API_URL: str = "https://bhoonidhi.nrsc.gov.in/api"
     BHOONIDHI_USER_ID: Optional[str] = None
     BHOONIDHI_PASSWORD: Optional[str] = None
     BHOONIDHI_PROVIDER_MODE: str = "MOCK"  # "LIVE" or "MOCK"
-    BHOONIDHI_CACHE_TTL_SECONDS: int = 1800  # 30 minutes cache for satellite catalogue searches
 
     # Data Freshness Thresholds (Minutes)
     DATA_FRESHNESS_WEATHER_MINUTES: int = 60
