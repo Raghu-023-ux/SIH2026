@@ -19,8 +19,11 @@ export interface LocationMapItem {
   rainfall_1h?: number;
   soil_moisture?: number;
   trend_direction: string;
+  trajectory?: string;
+  primary_factor?: string;
   last_updated: string;
 }
+
 
 export interface FactorDetail {
   name: string;

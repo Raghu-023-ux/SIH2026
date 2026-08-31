@@ -21,7 +21,10 @@ import SimulationPanel from "@/components/dashboard/SimulationPanel";
 import FieldOperationsPanel from "@/components/dashboard/FieldOperationsPanel";
 import BroadcastModal from "@/components/dashboard/BroadcastModal";
 import SitRepModal from "@/components/dashboard/SitRepModal";
+import LocationPriorityTable from "@/components/dashboard/LocationPriorityTable";
+import StationIntelPanel from "@/components/dashboard/StationIntelPanel";
 import { ShieldCheck, Info, Server, Activity, Database, CheckCircle2, Radio, MapPin, Layers, Sliders } from "lucide-react";
+
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -363,7 +366,7 @@ export default function CommandCenter() {
         {/* Dynamic Nav View: OVERVIEW */}
         {activeNavTab === "overview" && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            {/* Left Column (7 cols): Geographical Risk Map + Factor Details + Field Ops */}
+            {/* Left Column (7 cols): Tactical Map + Station Multi-Signal Deep-Dive + Event Detail */}
             <div className="lg:col-span-7 space-y-4">
               {/* GIS Tactical Risk Map */}
               <div className="space-y-1.5">
@@ -380,6 +383,21 @@ export default function CommandCenter() {
                   onOpenInvestigate={(id) => setInvestigateLocationId(id)}
                 />
               </div>
+
+              {/* Station Deep Telemetry & Synthesis Panel (when active) */}
+              {activeSelectedLocation && (
+                <StationIntelPanel
+                  locationId={activeSelectedLocation.id}
+                  locationName={activeSelectedLocation.name}
+                  district={activeSelectedLocation.district}
+                  state={activeSelectedLocation.state}
+                  elevation={activeSelectedLocation.elevation}
+                  slopeAngle={activeSelectedLocation.slope_angle}
+                  latestAssessment={latestAssessment}
+                  apiUrl={API_URL}
+                  onOpenInvestigate={(id) => setInvestigateLocationId(id)}
+                />
+              )}
 
               {/* Event & Factor Deep Detail Panel */}
               <EventDetailPanel
@@ -405,8 +423,16 @@ export default function CommandCenter() {
               />
             </div>
 
-            {/* Right Column (5 cols): Active Event Queue + Simulation Console */}
+            {/* Right Column (5 cols): Location Priority Table + Active Event Queue + Simulation Console */}
             <div className="lg:col-span-5 space-y-4">
+              {/* Operational Priority Table */}
+              <LocationPriorityTable
+                locations={locations}
+                selectedLocationId={selectedLocationId}
+                onSelectLocation={handleSelectLocation}
+                onOpenInvestigate={(id) => setInvestigateLocationId(id)}
+              />
+
               {/* Active Event Queue */}
               <ActiveEventsList
                 events={events}
@@ -441,76 +467,31 @@ export default function CommandCenter() {
         {/* Dynamic Nav View: STATIONS */}
         {activeNavTab === "stations" && (
           <div className="space-y-4">
-            <div className="bg-zinc-950 border border-zinc-800 rounded p-4 space-y-3">
-              <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-                <div>
-                  <h2 className="text-sm font-black font-mono text-white uppercase tracking-wider">
-                    All Monitored Telemetry Stations ({locations.length})
-                  </h2>
-                  <p className="text-xs text-zinc-400">
-                    Continuous environmental monitoring stations across the North Eastern Region corridor.
-                  </p>
-                </div>
-              </div>
+            <LocationPriorityTable
+              locations={locations}
+              selectedLocationId={selectedLocationId}
+              onSelectLocation={handleSelectLocation}
+              onOpenInvestigate={(id) => setInvestigateLocationId(id)}
+            />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {locations.map((loc) => (
-                  <div
-                    key={loc.id}
-                    className="bg-black border border-zinc-800 rounded p-3 space-y-2 hover:border-zinc-700 transition"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-black text-white font-mono text-xs">{loc.name}</span>
-                      <span
-                        className={`text-[9px] px-1.5 py-0.2 rounded font-black font-mono uppercase ${
-                          loc.risk_level === "CRITICAL"
-                            ? "bg-red-950 text-red-300 border border-red-700"
-                            : loc.risk_level === "HIGH"
-                            ? "bg-orange-950 text-orange-300 border border-orange-700"
-                            : loc.risk_level === "MODERATE"
-                            ? "bg-amber-950 text-amber-300 border border-amber-700"
-                            : "bg-emerald-950 text-emerald-300 border border-emerald-700"
-                        }`}
-                      >
-                        {loc.risk_level} ({loc.risk_score.toFixed(1)})
-                      </span>
-                    </div>
-
-                    <div className="text-[11px] text-zinc-400 font-mono space-y-0.5">
-                      <div>Location: {loc.district}, {loc.state}</div>
-                      <div>Coordinates: {loc.latitude.toFixed(3)}°N, {loc.longitude.toFixed(3)}°E</div>
-                      <div>Elevation: {loc.elevation} m | Slope: {loc.slope_angle}°</div>
-                    </div>
-
-                    <div className="pt-2 border-t border-zinc-850 flex items-center justify-between text-xs font-mono">
-                      <button
-                        onClick={() => {
-                          setSelectedLocationId(loc.id);
-                          setInvestigateLocationId(loc.id);
-                        }}
-                        className="text-white hover:text-zinc-300 font-bold transition flex items-center gap-1"
-                      >
-                        Investigate 360 &rarr;
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setSelectedLocationId(loc.id);
-                          setActiveNavTab("overview");
-                        }}
-                        className="text-zinc-500 hover:text-zinc-300 transition"
-                      >
-                        Focus On Map
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            {activeSelectedLocation && (
+              <StationIntelPanel
+                locationId={activeSelectedLocation.id}
+                locationName={activeSelectedLocation.name}
+                district={activeSelectedLocation.district}
+                state={activeSelectedLocation.state}
+                elevation={activeSelectedLocation.elevation}
+                slopeAngle={activeSelectedLocation.slope_angle}
+                latestAssessment={latestAssessment}
+                apiUrl={API_URL}
+                onOpenInvestigate={(id) => setInvestigateLocationId(id)}
+              />
+            )}
           </div>
         )}
 
         {/* Dynamic Nav View: EVENTS */}
+
         {activeNavTab === "events" && (
           <div className="space-y-4">
             <ActiveEventsList
