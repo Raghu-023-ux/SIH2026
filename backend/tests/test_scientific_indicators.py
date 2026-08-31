@@ -156,13 +156,14 @@ async def test_scientific_investigation_and_canonical_endpoints(client):
     assert "uncertainty" in data1
     assert "data_quality_matrix" in data1
     assert "timeline_series" in data1
-    assert data1["engine_version"] == "prototype-v0.3"
+    assert data1["engine_version"] == "1.0.0"
 
     # 2. Test /canonical-assessment
     resp_canon = await client.get(f"/api/v1/locations/{location_id}/canonical-assessment")
     assert resp_canon.status_code == 200
     canon = resp_canon.json()
-    assert canon["engine_version"] == "prototype-v0.3"
+    assert canon["engine_version"] == "1.0.0"
+
     assert "environment" in canon
     assert "indicators" in canon
     assert "triggers" in canon

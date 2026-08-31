@@ -308,7 +308,7 @@ class ScientificStationInvestigationResponse(BaseModel):
     evidence_summary: EvidenceSummary
     provenance: List[DataProvenanceItem]
     generated_at: datetime
-    engine_version: str = "prototype-v0.3"
+    engine_version: str = "1.0.0"
     data_mode: str = "LIVE"
 
 
@@ -316,8 +316,9 @@ class ScientificStationInvestigationResponse(BaseModel):
 class CanonicalAssessmentObject(BaseModel):
     location: Dict[str, Any]
     timestamp: datetime
-    engine_version: str = "prototype-v0.3"
+    engine_version: str = "1.0.0"
     environment: Dict[str, Any]
+
     indicators: Dict[str, Any]
     triggers: List[TriggerFactorItem]
     conditioning_factors: List[ConditioningFactorItem]

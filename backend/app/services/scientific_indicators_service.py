@@ -976,9 +976,10 @@ class ScientificIndicatorsService:
             evidence_summary=evidence,
             provenance=provenance_list,
             generated_at=datetime.now(timezone.utc),
-            engine_version="prototype-v0.3",
+            engine_version="1.0.0",
             data_mode=settings.DATA_MODE,
         )
+
 
     # --- 8. CANONICAL ASSESSMENT OBJECT GENERATOR ---
 
@@ -994,8 +995,9 @@ class ScientificIndicatorsService:
         return CanonicalAssessmentObject(
             location=inv.station,
             timestamp=inv.generated_at,
-            engine_version="prototype-v0.3",
+            engine_version="1.0.0",
             environment={
+
                 "data_mode": inv.data_mode,
                 "rainfall_rate_mmh": inv.rainfall.intensity.current_intensity_mm_h,
                 "rainfall_24h_mm": inv.rainfall.anomaly.current_24h_mm,
