@@ -179,6 +179,7 @@ class BhoonidhiProvider(EarthObservationProvider):
         self._last_auth_attempt: Optional[datetime] = None
         self._auth_count_hourly: int = 0
         self._last_request_time: float = 0.0
+        self._last_auth_state: Optional[str] = None  # "AUTHENTICATION_FAILED", "RATE_LIMITED", "UNAVAILABLE"
         self.mock_fallback = MockEarthObservationProvider()
 
     def is_configured(self) -> bool:
@@ -198,8 +199,11 @@ class BhoonidhiProvider(EarthObservationProvider):
         elif token_valid:
             status_label = "AVAILABLE"
             note = "Authenticated with ISRO / NRSC Bhoonidhi Open Data Gateway."
+        elif self._last_auth_state:
+            status_label = self._last_auth_state
+            note = f"Configured but authentication state is {self._last_auth_state}."
         else:
-            status_label = "AVAILABLE"
+            status_label = "CONFIGURED"
             note = "Configured. Token will authenticate on next remote sensing query."
 
         return BhoonidhiStatusResponse(
@@ -217,6 +221,7 @@ class BhoonidhiProvider(EarthObservationProvider):
             latest_synced_scene="S1A_IW_GRDH_1SDV_NER_CATALOGUE",
             note=note,
         )
+
 
     async def authenticate(self) -> bool:
         if not self.is_configured():
@@ -250,6 +255,7 @@ class BhoonidhiProvider(EarthObservationProvider):
         if self._last_auth_attempt and (now - self._last_auth_attempt).total_seconds() < 3600:
             if self._auth_count_hourly >= 20:
                 logger.error("Bhoonidhi authentication rate limit reached (20 auths/hr).")
+                self._last_auth_state = "RATE_LIMITED"
                 return False
         else:
             self._auth_count_hourly = 0
@@ -271,6 +277,7 @@ class BhoonidhiProvider(EarthObservationProvider):
                     self._access_token = data.get("access_token")
                     expires_in = data.get("expires_in", 3600)
                     self._token_expiry = now + timedelta(seconds=expires_in)
+                    self._last_auth_state = None
 
                     # Persist in Redis with TTL
                     await cache.set(
@@ -284,14 +291,27 @@ class BhoonidhiProvider(EarthObservationProvider):
                     provider_health_registry.record_success("bhoonidhi-auth", latency_ms)
                     logger.info("Successfully authenticated with ISRO Bhoonidhi.")
                     return True
+                elif res.status_code in (401, 403):
+                    self._last_auth_state = "AUTHENTICATION_FAILED"
+                    logger.error(f"Bhoonidhi authentication failed: HTTP {res.status_code}")
+                    provider_health_registry.record_failure("bhoonidhi-auth", f"HTTP {res.status_code}")
+                    return False
+                elif res.status_code == 429:
+                    self._last_auth_state = "RATE_LIMITED"
+                    logger.error(f"Bhoonidhi rate limit reached: HTTP {res.status_code}")
+                    provider_health_registry.record_failure("bhoonidhi-auth", f"HTTP {res.status_code}")
+                    return False
                 else:
-                    logger.error(f"Bhoonidhi authentication failed: HTTP {res.status_code} - {res.text}")
+                    self._last_auth_state = "UNAVAILABLE"
+                    logger.error(f"Bhoonidhi service unavailable: HTTP {res.status_code}")
                     provider_health_registry.record_failure("bhoonidhi-auth", f"HTTP {res.status_code}")
                     return False
         except Exception as ex:
+            self._last_auth_state = "UNAVAILABLE"
             logger.error(f"Bhoonidhi authentication exception: {ex}")
             provider_health_registry.record_failure("bhoonidhi-auth", str(ex))
             return False
+
 
     async def search(
         self,
@@ -472,12 +492,9 @@ _earth_observation_provider: Optional[EarthObservationProvider] = None
 def get_earth_observation_provider() -> EarthObservationProvider:
     global _earth_observation_provider
     if _earth_observation_provider is None:
-        if (
-            settings.BHOONIDHI_PROVIDER_MODE == "LIVE"
-            and settings.BHOONIDHI_USER_ID
-            and settings.BHOONIDHI_PASSWORD
-        ):
+        if (settings.BHOONIDHI_USER_ID and settings.BHOONIDHI_PASSWORD) or settings.BHOONIDHI_PROVIDER_MODE == "LIVE":
             _earth_observation_provider = BhoonidhiProvider()
         else:
             _earth_observation_provider = MockEarthObservationProvider()
     return _earth_observation_provider
+

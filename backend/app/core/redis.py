@@ -107,16 +107,19 @@ class UpstashRedisClient:
                 return data.get("result")
             return None
 
-    async def set(self, key: str, value: str, ex_seconds: Optional[int] = None) -> bool:
-        cmd = ["SET", key, value]
-        if ex_seconds:
-            cmd.extend(["EX", str(ex_seconds)])
+    async def set(self, key: str, value: Any, ex_seconds: Optional[int] = None, ttl_seconds: Optional[int] = None) -> bool:
+        ttl = ttl_seconds if ttl_seconds is not None else ex_seconds
+        val_str = json.dumps(value) if isinstance(value, (dict, list)) else str(value)
+        cmd = ["SET", key, val_str]
+        if ttl is not None:
+            cmd.extend(["EX", str(ttl)])
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             resp = await client.post(self.url, headers=self.headers, json=cmd)
             if resp.status_code == 200:
                 data = resp.json()
                 return data.get("result") in ["OK", True, 1]
             return False
+
 
     async def delete(self, key: str) -> bool:
         async with httpx.AsyncClient(timeout=self.timeout) as client:
