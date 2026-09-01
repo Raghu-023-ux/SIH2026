@@ -61,34 +61,33 @@ async def test_bhoonidhi_provider_unconfigured_state():
 
 
 @pytest.mark.asyncio
-async def test_earth_observation_api_endpoints():
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        # 1. GET /status
-        st_res = await client.get("/api/v1/earth-observation/status")
-        assert st_res.status_code == 200
-        st_data = st_res.json()
-        assert "provider_name" in st_data
-        assert "status" in st_data
-        assert "supported_collections" in st_data
+async def test_earth_observation_api_endpoints(client: AsyncClient):
+    # 1. GET /status
+    st_res = await client.get("/api/v1/earth-observation/status")
+    assert st_res.status_code == 200
+    st_data = st_res.json()
+    assert "provider_name" in st_data
+    assert "status" in st_data
+    assert "supported_collections" in st_data
 
-        # 2. POST /search
-        search_res = await client.post(
-            "/api/v1/earth-observation/search",
-            json={
-                "collection": "CartoSat-1_PAN_CartoDEM_30m",
-                "location_id": "NER-SIK-GANGTOK-01",
-                "limit": 3,
-            }
-        )
-        assert search_res.status_code == 200
-        search_data = search_res.json()
-        assert search_data["total_results"] >= 0
-        assert "results" in search_data
+    # 2. POST /search
+    search_res = await client.post(
+        "/api/v1/earth-observation/search",
+        json={
+            "collection": "CartoSat-1_PAN_CartoDEM_30m",
+            "location_id": "NER-SIK-GANGTOK-01",
+            "limit": 3,
+        }
+    )
+    assert search_res.status_code == 200
+    search_data = search_res.json()
+    assert search_data["total_results"] >= 0
+    assert "results" in search_data
 
-        # 3. GET /location/{id}/acquisitions
-        acq_res = await client.get("/api/v1/earth-observation/location/NER-SIK-GANGTOK-01/acquisitions?limit=2")
-        assert acq_res.status_code == 200
-        acq_data = acq_res.json()
-        assert isinstance(acq_data, list)
-        assert len(acq_data) <= 2
+    # 3. GET /location/{id}/acquisitions
+    acq_res = await client.get("/api/v1/earth-observation/location/NER-SIK-GANGTOK-01/acquisitions?limit=2")
+    assert acq_res.status_code == 200
+    acq_data = acq_res.json()
+    assert isinstance(acq_data, list)
+    assert len(acq_data) <= 2
+

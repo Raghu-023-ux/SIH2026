@@ -11,7 +11,13 @@ class LocationService:
     @staticmethod
     async def get_all_locations(session: AsyncSession) -> List[Location]:
         result = await session.execute(select(Location).order_by(Location.state, Location.name))
-        return list(result.scalars().all())
+        locations = list(result.scalars().all())
+        if not locations:
+            await LocationService.seed_initial_locations(session)
+            result = await session.execute(select(Location).order_by(Location.state, Location.name))
+            locations = list(result.scalars().all())
+        return locations
+
 
     @staticmethod
     async def get_location_by_id(session: AsyncSession, location_id: str) -> Optional[Location]:

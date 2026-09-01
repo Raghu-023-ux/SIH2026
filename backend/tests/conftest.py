@@ -4,10 +4,15 @@ import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
-from backend.app.core.database import Base, get_db
+import backend.app.models  # Register all models on Base.metadata
+from backend.app.core.database import Base, get_db, init_db
 from backend.app.core.config import settings
 from backend.app.main import app
 from backend.app.services.location_service import LocationService
+from backend.app.engine.scheduler import background_engine_scheduler
+
+# Ensure background scheduler is stopped during unit test execution
+background_engine_scheduler.stop()
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -21,6 +26,12 @@ TestSessionLocal = async_sessionmaker(
     class_=AsyncSession,
     expire_on_commit=False,
 )
+
+
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def init_main_db():
+    await init_db()
+
 
 
 @pytest_asyncio.fixture(scope="function")

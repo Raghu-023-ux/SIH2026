@@ -18,6 +18,7 @@ import Link from "next/link";
 
 interface CommandHeaderProps {
   engineOnline: boolean;
+  engineStatusText?: string;
   lastUpdated: string | null;
   dataSourcesStatus: string;
   dataMode: string;
@@ -37,6 +38,7 @@ interface CommandHeaderProps {
 
 export default function CommandHeader({
   engineOnline,
+  engineStatusText = "ONLINE",
   lastUpdated,
   dataSourcesStatus,
   dataMode,
@@ -50,10 +52,12 @@ export default function CommandHeader({
   activeTab = "overview",
   onSelectTab,
   bhoonidhiStatus = "NOT_CONFIGURED",
-  fieldActiveCount = 3,
+  fieldActiveCount = 0,
   onOpenBroadcast,
 }: CommandHeaderProps) {
   const isLiveMode = dataMode.toUpperCase() === "LIVE";
+  const displayEngineStatus = isRunningEngine ? "RUNNING" : (engineOnline ? engineStatusText : "OFFLINE");
+  const isDataHealthy = engineOnline && (dataSourcesStatus.includes("HEALTHY") || dataSourcesStatus.includes("OPERATIONAL"));
 
   return (
     <header className="bg-black border-b border-zinc-800 font-sans text-white">
@@ -70,7 +74,7 @@ export default function CommandHeader({
                 SIH26001 • North Eastern Region Landslide Decision Support System
               </span>
               <span className="bg-zinc-900 text-zinc-300 border border-zinc-700 text-[10px] font-mono px-1.5 py-0.2 rounded font-bold">
-                prototype-v0.3
+                v1.0.0
               </span>
             </div>
             <h1 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
@@ -99,11 +103,11 @@ export default function CommandHeader({
               onClick={() => onToggleDataMode("SIMULATION")}
               className={`px-3 py-1 rounded transition font-bold flex items-center gap-1.5 ${
                 !isLiveMode
-                  ? "bg-amber-500 text-black shadow-sm"
+                  ? "bg-white text-black shadow-sm"
                   : "text-zinc-400 hover:text-white"
               }`}
             >
-              <Sliders className="w-3 h-3" />
+              <Sliders className="w-3 h-3 text-amber-500" />
               SIMULATION
             </button>
           </div>
@@ -120,11 +124,11 @@ export default function CommandHeader({
             </button>
           )}
 
-          {/* Assessment Trigger */}
+          {/* Manual Run Engine */}
           <button
             onClick={onTriggerEngineRun}
             disabled={isRunningEngine}
-            className="bg-white hover:bg-zinc-200 text-black text-xs font-black px-3.5 py-1.5 rounded transition flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+            className="bg-white hover:bg-zinc-200 text-black text-xs font-black px-3.5 py-1.5 rounded transition flex items-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRunningEngine ? "animate-spin" : ""}`} />
             {isRunningEngine ? "Assessing..." : "Run Engine"}
@@ -152,8 +156,14 @@ export default function CommandHeader({
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-1.5">
             <span className="text-zinc-500 uppercase font-semibold">ENGINE:</span>
-            <span className={`font-black ${engineOnline ? "text-emerald-400" : "text-red-400"}`}>
-              {engineOnline ? "ONLINE" : "OFFLINE"}
+            <span className={`font-black ${
+              displayEngineStatus === "ONLINE" || displayEngineStatus === "RUNNING"
+                ? "text-emerald-400"
+                : displayEngineStatus === "IDLE"
+                ? "text-blue-400"
+                : "text-red-400"
+            }`}>
+              {displayEngineStatus}
             </span>
           </div>
 
@@ -161,7 +171,9 @@ export default function CommandHeader({
 
           <div className="flex items-center gap-1.5">
             <span className="text-zinc-500 uppercase font-semibold">DATA:</span>
-            <span className="text-zinc-200 font-bold">HEALTHY</span>
+            <span className={`font-bold ${isDataHealthy ? "text-zinc-200" : "text-red-400"}`}>
+              {engineOnline ? (isDataHealthy ? "HEALTHY" : "DEGRADED") : "OFFLINE"}
+            </span>
           </div>
 
           <span className="text-zinc-700">|</span>
@@ -177,14 +189,16 @@ export default function CommandHeader({
 
           <div className="flex items-center gap-1.5">
             <span className="text-zinc-500 uppercase font-semibold">FIELD:</span>
-            <span className="text-white font-bold">{fieldActiveCount} ACTIVE</span>
+            <span className="text-white font-bold">{engineOnline ? `${fieldActiveCount} ACTIVE` : "OFFLINE"}</span>
           </div>
 
           <span className="text-zinc-700">|</span>
 
           <div className="flex items-center gap-1.5">
             <span className="text-zinc-500 uppercase font-semibold">BROADCAST:</span>
-            <span className="text-emerald-400 font-bold">READY</span>
+            <span className={`font-bold ${engineOnline ? "text-emerald-400" : "text-zinc-500"}`}>
+              {engineOnline ? "READY" : "OFFLINE"}
+            </span>
           </div>
         </div>
 

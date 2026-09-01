@@ -262,6 +262,34 @@ class RedisService:
                 logger.warning(f"Upstash Redis increment failed for key '{key}' ({err}). Using in-memory counter.")
         return await self._memory_cache.increment(key, amount=amount, ttl_seconds=ttl_seconds)
 
+    async def acquire_lock(self, lock_name: str, ttl_seconds: int = 45) -> bool:
+        """
+        Acquires a distributed lock with TTL expiration.
+        Returns True if lock was acquired, False if already held.
+        """
+        key = f"lock:{lock_name}"
+        if self._upstash_client:
+            try:
+                cmd = ["SET", key, "LOCKED", "EX", str(ttl_seconds), "NX"]
+                async with httpx.AsyncClient(timeout=self._upstash_client.timeout) as client:
+                    resp = await client.post(self._upstash_client.url, headers=self._upstash_client.headers, json=cmd)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        return data.get("result") in ["OK", True, 1]
+            except Exception as err:
+                logger.warning(f"Upstash Redis lock acquisition failed for '{lock_name}' ({err}). Using in-memory lock.")
+        # Local in-memory lock
+        if await self._memory_cache.exists(key):
+            return False
+        await self._memory_cache.set(key, "LOCKED", ttl_seconds=ttl_seconds)
+        return True
+
+    async def release_lock(self, lock_name: str) -> bool:
+        """Releases a previously acquired distributed lock."""
+        key = f"lock:{lock_name}"
+        return await self.delete(key)
+
+
     async def check_health(self) -> Dict[str, Any]:
         """
         Operational health check for Redis/Cache subsystem.

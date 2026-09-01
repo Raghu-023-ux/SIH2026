@@ -53,6 +53,7 @@ export default function CommandCenter() {
   const [investigateLocationId, setInvestigateLocationId] = useState<string | null>(null);
   const [explainModalLocationId, setExplainModalLocationId] = useState<string | null>(null);
   const [engineOnline, setEngineOnline] = useState<boolean>(true);
+  const [engineStatusText, setEngineStatusText] = useState<string>("ONLINE");
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [isRunningEngine, setIsRunningEngine] = useState<boolean>(false);
   const [isIngesting, setIsIngesting] = useState<boolean>(false);
@@ -100,15 +101,27 @@ export default function CommandCenter() {
   // Master refresh function
   const refreshDashboardData = useCallback(async () => {
     try {
-      // 1. Fetch Summary KPIs
-      const sumRes = await fetch(`${API_URL}/api/v1/dashboard/summary`);
-      if (sumRes.ok) {
-        const sumData: DashboardSummaryData = await sumRes.json();
+      // 1. Fetch Engine Status & Summary KPIs
+      const [sumRes, engRes] = await Promise.allSettled([
+        fetch(`${API_URL}/api/v1/dashboard/summary`),
+        fetch(`${API_URL}/api/v1/engine/status`),
+      ]);
+
+      if (engRes.status === "fulfilled" && engRes.value.ok) {
+        const engData = await engRes.value.json();
+        setEngineStatusText(engData.engine_status || "ONLINE");
+        setEngineOnline(true);
+      }
+
+      if (sumRes.status === "fulfilled" && sumRes.value.ok) {
+        const sumData: DashboardSummaryData = await sumRes.value.json();
         setSummary(sumData);
         setEngineOnline(true);
-      } else {
+      } else if (engRes.status === "rejected" && sumRes.status === "rejected") {
         setEngineOnline(false);
+        setEngineStatusText("OFFLINE");
       }
+
 
       // 2. Fetch Map Locations
       const mapRes = await fetch(`${API_URL}/api/v1/locations/map`);
@@ -327,9 +340,11 @@ export default function CommandCenter() {
       {/* 1. Header with Mode Switcher & Top-Level Navigation */}
       <CommandHeader
         engineOnline={engineOnline}
+        engineStatusText={engineStatusText}
         lastUpdated={lastUpdated}
         dataSourcesStatus={summary?.data_sources_status || "OPEN-METEO LIVE / NER STATIONS"}
         dataMode={dataMode}
+
         onToggleDataMode={handleToggleDataMode}
         onTriggerEngineRun={handleTriggerEngineRun}
         onTriggerBatchIngest={handleTriggerBatchIngest}

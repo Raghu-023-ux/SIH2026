@@ -11,6 +11,10 @@ from backend.app.services.location_service import LocationService
 from backend.app.api.v1.router import api_router
 
 
+from backend.app.engine.scheduler import background_engine_scheduler
+from backend.app.engine.status import engine_status_tracker
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Initialize tables and seed initial NER monitoring stations
@@ -22,10 +26,15 @@ async def lifespan(app: FastAPI):
         logger.info("Application startup completed successfully.")
     except Exception as err:
         logger.error(f"Database initialization deferred on startup ({err}). Server continuing startup...")
+
+    # Start automated background assessment engine scheduler
+    background_engine_scheduler.start()
+
     yield
+
     # Shutdown
     logger.info("Shutting down application...")
-
+    background_engine_scheduler.stop()
 
 
 app = FastAPI(
@@ -41,10 +50,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS Configuration
+# CORS Configuration - Explicit origins + dynamic Vercel wildcard regex
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -63,12 +73,15 @@ async def global_exception_handler(request: Request, exc: Exception):
 @app.get("/health", tags=["Health"])
 async def health_check():
     """
-    Health check endpoint returning system status, database reachability, and service details.
+    Consolidated health check endpoint returning system status, database reachability,
+    cache health, engine execution state, and data provider metrics.
+    Exposes NO passwords, API keys, or connection strings.
     """
     from backend.app.core.database import check_database_health
     from backend.app.core.redis import redis_service
     db_health = await check_database_health()
     cache_health = await redis_service.check_health()
+    engine_state = engine_status_tracker.get_status_payload()
     return {
         "status": "healthy" if (db_health["reachable"] and cache_health["reachable"]) else "degraded",
         "service": settings.PROJECT_NAME,
@@ -86,9 +99,18 @@ async def health_check():
             "mode": cache_health.get("mode", "LOCAL_MEMORY"),
             "latency_ms": cache_health.get("latency_ms", 0.0),
         },
+        "engine": {
+            "status": engine_state["engine_status"],
+            "version": engine_state["engine_version"],
+            "last_run_at": engine_state["last_run_at"],
+            "last_success_at": engine_state["last_success_at"],
+            "locations_evaluated": engine_state["locations_evaluated"],
+            "active_events_count": engine_state["active_events_count"],
+        },
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "disclaimer": "Landslide risk calculation formulas represent a prototype analytical model."
     }
+
 
 
 from backend.app.api.v1.endpoints.health_ready import router as health_ready_router

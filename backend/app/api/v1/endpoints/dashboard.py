@@ -23,18 +23,11 @@ async def get_dashboard_summary(db: AsyncSession = Depends(get_db)):
     total_locations = loc_count_res.scalar() or 0
 
     if total_locations == 0:
-        return DashboardSummaryResponse(
-            active_events_count=0,
-            critical_events_count=0,
-            high_risk_count=0,
-            moderate_risk_count=0,
-            low_risk_count=0,
-            total_monitored_locations=0,
-            highest_risk_score=0.0,
-            highest_risk_level="LOW",
-            last_engine_run=datetime.now(timezone.utc),
-            data_sources_status="OFFLINE - NO STATIONS"
-        )
+        from backend.app.services.location_service import LocationService
+        await LocationService.seed_initial_locations(db)
+        loc_count_res = await db.execute(select(func.count(Location.id)))
+        total_locations = loc_count_res.scalar() or 0
+
 
     # 2. Active & Critical Events
     active_events_query = select(DisasterEvent).where(DisasterEvent.status != "RESOLVED")
