@@ -15,13 +15,17 @@ from backend.app.api.v1.router import api_router
 async def lifespan(app: FastAPI):
     # Startup: Initialize tables and seed initial NER monitoring stations
     logger.info(f"Starting {settings.PROJECT_NAME} v{settings.VERSION} [{settings.ENVIRONMENT}]")
-    await init_db()
-    async with AsyncSessionLocal() as session:
-        await LocationService.seed_initial_locations(session)
-    logger.info("Application startup completed successfully.")
+    try:
+        await init_db()
+        async with AsyncSessionLocal() as session:
+            await LocationService.seed_initial_locations(session)
+        logger.info("Application startup completed successfully.")
+    except Exception as err:
+        logger.error(f"Database initialization deferred on startup ({err}). Server continuing startup...")
     yield
     # Shutdown
     logger.info("Shutting down application...")
+
 
 
 app = FastAPI(
