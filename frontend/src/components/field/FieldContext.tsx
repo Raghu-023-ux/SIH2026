@@ -82,7 +82,16 @@ export interface AssignmentData {
     state: string;
     elevation: number;
     slope_angle: number;
+    susceptibility_score?: number;
+    risk_score?: number;
+    risk_level?: string;
+    confidence_score?: number;
+    trajectory?: string;
+    primary_factor?: string;
+    rainfall_24h?: number;
+    soil_moisture?: number;
   } | null;
+
   assigned_event?: {
     id: string;
     hazard_type: string;

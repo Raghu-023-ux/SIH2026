@@ -18,16 +18,18 @@ import {
 import { useField } from "@/components/field/FieldContext";
 
 const REPORT_TYPES = [
-  "LANDSLIDE_OBSERVED",
-  "ROAD_BLOCKED",
-  "WATER_MUD_FLOW",
-  "INFRASTRUCTURE_DAMAGE",
-  "PEOPLE_TRAPPED",
-  "INJURIES",
-  "VISIBILITY_ISSUE",
-  "COMMUNICATION_FAILURE",
+  "LANDSLIDE",
+  "SLOPE_FAILURE",
+  "ROAD_BLOCKAGE",
+  "FLOODING",
+  "DRAINAGE_FAILURE",
+  "STRUCTURAL_DAMAGE",
+  "WATER_LEVEL_CHANGE",
+  "CRACKING",
+  "DEBRIS",
   "OTHER",
 ];
+
 
 export default function FieldReportsPage() {
   const {

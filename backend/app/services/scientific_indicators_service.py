@@ -957,6 +957,14 @@ class ScientificIndicatorsService:
             note=eo_health.note,
         )
 
+        # Retrieve ground truth field observations for this station
+        from backend.app.services.field_service import field_service, FieldOperationsService
+        raw_reports = await field_service.get_field_reports(session, location_id=location_id, limit=10)
+        formatted_field_reports = [
+            FieldOperationsService.format_report_response(r).model_dump()
+            for r in raw_reports
+        ]
+
         return ScientificStationInvestigationResponse(
             station=station_meta,
             current_assessment=current_assessment,
@@ -974,11 +982,13 @@ class ScientificIndicatorsService:
             forecast=forecast_pkg,
             assessment_drivers=drivers,
             evidence_summary=evidence,
+            field_reports=formatted_field_reports,
             provenance=provenance_list,
             generated_at=datetime.now(timezone.utc),
             engine_version="1.0.0",
             data_mode=settings.DATA_MODE,
         )
+
 
 
     # --- 8. CANONICAL ASSESSMENT OBJECT GENERATOR ---

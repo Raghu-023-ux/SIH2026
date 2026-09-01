@@ -306,10 +306,12 @@ class ScientificStationInvestigationResponse(BaseModel):
     forecast: ForecastOutlookPackage
     assessment_drivers: List[AssessmentDriverItem]
     evidence_summary: EvidenceSummary
+    field_reports: List[Dict[str, Any]] = Field(default_factory=list)
     provenance: List[DataProvenanceItem]
     generated_at: datetime
     engine_version: str = "1.0.0"
     data_mode: str = "LIVE"
+
 
 
 # --- Canonical Core Engine Assessment Object ---

@@ -109,6 +109,12 @@ class FieldOperationsService:
         stmt = select(FieldTeam).where(or_(FieldTeam.id == identifier, FieldTeam.callsign == identifier))
         return (await session.execute(stmt)).scalars().first()
 
+    VALID_TEAM_STATUSES = {
+        "AVAILABLE", "ASSIGNED", "EN_ROUTE", "DEPLOYED", "ON_SITE", "ON_SCENE",
+        "ASSESSING", "REPORT_SUBMITTED", "ASSISTING", "EVACUATING", "NEED_ASSISTANCE",
+        "RESOLVED", "OFFLINE"
+    }
+
     @staticmethod
     async def update_team_status(
         session: AsyncSession,
@@ -117,12 +123,16 @@ class FieldOperationsService:
         latitude: Optional[float] = None,
         longitude: Optional[float] = None
     ) -> Optional[FieldTeam]:
+        norm_status = status.upper().replace(" ", "_")
+        if norm_status not in FieldOperationsService.VALID_TEAM_STATUSES:
+            raise ValueError(f"Invalid field unit status '{status}'. Valid statuses: {FieldOperationsService.VALID_TEAM_STATUSES}")
+
         stmt = select(FieldTeam).where(FieldTeam.id == team_id)
         team = (await session.execute(stmt)).scalars().first()
         if not team:
             return None
 
-        team.status = status
+        team.status = norm_status
         if latitude is not None:
             team.latitude = latitude
         if longitude is not None:
@@ -174,13 +184,24 @@ class FieldOperationsService:
 
     @staticmethod
     async def submit_field_report(session: AsyncSession, report_in: FieldReportCreate) -> FieldReport:
+        # Validate severity
+        norm_sev = report_in.severity.upper()
+        if norm_sev not in ["LOW", "MODERATE", "HIGH", "CRITICAL"]:
+            raise ValueError(f"Invalid severity '{report_in.severity}'. Must be LOW, MODERATE, HIGH, or CRITICAL.")
+
+        # Validate GPS if provided
+        if report_in.latitude is not None and not (-90.0 <= report_in.latitude <= 90.0):
+            raise ValueError("Latitude must be between -90.0 and 90.0")
+        if report_in.longitude is not None and not (-180.0 <= report_in.longitude <= 180.0):
+            raise ValueError("Longitude must be between -180.0 and 180.0")
+
         report = FieldReport(
             event_id=report_in.event_id,
             location_id=report_in.location_id,
             team_id=report_in.team_id,
             reported_by=report_in.reported_by,
-            report_type=report_in.report_type,
-            severity=report_in.severity,
+            report_type=report_in.report_type.upper().replace(" ", "_"),
+            severity=norm_sev,
             description=report_in.description,
             latitude=report_in.latitude,
             longitude=report_in.longitude,
@@ -193,6 +214,7 @@ class FieldOperationsService:
         await session.flush()
 
         # Handle image attachments if any storage keys passed
+        created_images = []
         if report_in.image_storage_keys:
             for key in report_in.image_storage_keys:
                 if key and key.strip():
@@ -205,14 +227,37 @@ class FieldOperationsService:
                         created_at=datetime.now(timezone.utc),
                     )
                     session.add(img)
+                    created_images.append(img)
             await session.flush()
+            report.__dict__["images"] = created_images
+
+        # Dispatch push notification to Core Command Center if configured
+        try:
+            from backend.app.services.fcm_provider import get_fcm_provider
+            fcm = get_fcm_provider()
+            await fcm.send_to_topic(
+                topic="command_center_alerts",
+                title=f"FIELD REPORT: {report.report_type} [{report.severity}]",
+                body=f"{report.reported_by} at location {report.location_id}: {report.description[:100]}",
+                data={
+                    "report_id": str(report.id),
+                    "location_id": str(report.location_id),
+                    "severity": str(report.severity),
+                    "report_type": str(report.report_type),
+                },
+                priority="HIGH" if report.severity in ["HIGH", "CRITICAL"] else "NORMAL"
+            )
+        except Exception as ex:
+            logger.warning(f"FCM push notification bypass for field report: {ex}")
 
         logger.info(f"New field report [{report.report_type} - {report.severity}] submitted by {report.reported_by}")
         return report
 
+
     @staticmethod
     async def update_report_status(session: AsyncSession, report_id: str, update_in: FieldReportUpdate) -> Optional[FieldReport]:
-        stmt = select(FieldReport).where(FieldReport.id == report_id)
+        from sqlalchemy.orm import selectinload
+        stmt = select(FieldReport).options(selectinload(FieldReport.images)).where(FieldReport.id == report_id)
         report = (await session.execute(stmt)).scalars().first()
         if not report:
             return None
@@ -233,7 +278,8 @@ class FieldOperationsService:
         status: Optional[str] = None,
         limit: int = 50
     ) -> List[FieldReport]:
-        stmt = select(FieldReport)
+        from sqlalchemy.orm import selectinload
+        stmt = select(FieldReport).options(selectinload(FieldReport.images))
         filters = []
         if location_id:
             filters.append(FieldReport.location_id == location_id)
@@ -247,6 +293,7 @@ class FieldOperationsService:
 
         stmt = stmt.order_by(FieldReport.timestamp.desc()).limit(limit)
         return list((await session.execute(stmt)).scalars().all())
+
 
     @staticmethod
     async def request_assistance(session: AsyncSession, req_in: AssistanceRequestCreate) -> AssistanceRequest:
@@ -434,8 +481,17 @@ class FieldOperationsService:
                 "latitude": loc.latitude,
                 "longitude": loc.longitude,
                 "elevation": loc.elevation,
-                "slope_angle": loc.slope_angle
+                "slope_angle": loc.slope_angle,
+                "susceptibility_score": loc.susceptibility_score,
+                "risk_score": assess.risk_score if assess else 10.0,
+                "risk_level": assess.risk_level if assess else "LOW",
+                "confidence_score": assess.confidence_score if assess else 0.85,
+                "trajectory": assess.trajectory if assess else "STABLE",
+                "primary_factor": assess.reason if assess else "Baseline stability",
+                "rainfall_24h": obs.rainfall_24h if obs else 0.0,
+                "soil_moisture": obs.soil_moisture if obs else 0.0,
             } if loc else None,
+
             assigned_event={
                 "id": event.id,
                 "hazard_type": event.event_type,

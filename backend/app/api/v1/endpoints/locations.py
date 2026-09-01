@@ -396,3 +396,22 @@ async def get_station_risk_timeline(
 
     return scientific_indicators_service.build_multi_series_timeline(obs, risks)
 
+
+@router.get("/{location_id}/field-reports", tags=["Station 360 & Scientific Analytics"])
+async def get_station_field_reports(
+    location_id: str,
+    limit: int = Query(50, ge=1, le=100),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retrieves chronological on-ground field observations and evidence submitted by response units for this station.
+    """
+    location = await LocationService.get_location_by_id(db, location_id)
+    if not location:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Location '{location_id}' not found.")
+
+    from backend.app.services.field_service import field_service, FieldOperationsService
+    reports = await field_service.get_field_reports(db, location_id=location_id, limit=limit)
+    return [FieldOperationsService.format_report_response(r) for r in reports]
+
+

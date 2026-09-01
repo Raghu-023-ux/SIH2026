@@ -455,9 +455,11 @@ export interface ScientificInvestigationData {
     limiting_uncertain_factors: string[];
     missing_sensor_observations: string[];
   };
+  field_reports?: any[];
   provenance: DataProvenance[];
   generated_at: string;
   engine_version?: string;
   data_mode: string;
 }
+
 

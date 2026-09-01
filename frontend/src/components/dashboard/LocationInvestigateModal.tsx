@@ -44,7 +44,8 @@ interface LocationInvestigateModalProps {
   onClose: () => void;
 }
 
-type TabType = "overview" | "rainfall" | "soil" | "terrain" | "timeline" | "forecast" | "quality";
+type TabType = "overview" | "rainfall" | "soil" | "terrain" | "timeline" | "forecast" | "quality" | "field_evidence";
+
 
 export default function LocationInvestigateModal({
   locationId,
@@ -228,7 +229,9 @@ export default function LocationInvestigateModal({
             { id: "timeline", label: "5. Risk Timeline", icon: BarChart3 },
             { id: "forecast", label: "6. Forecast", icon: Clock },
             { id: "quality", label: "7. Data Quality & Uncertainty", icon: Database },
+            { id: "field_evidence", label: "8. Field Evidence", icon: Radio },
           ].map((tab) => {
+
             const active = activeTab === tab.id;
             const Icon = tab.icon;
             return (
@@ -989,8 +992,138 @@ export default function LocationInvestigateModal({
                   </div>
                 </div>
               )}
+
+              {/* ============================================================ */}
+              {/* TAB 8: FIELD EVIDENCE & GROUND OBSERVATIONS */}
+              {/* ============================================================ */}
+              {activeTab === "field_evidence" && (
+                <div className="space-y-4">
+                  {/* Summary Bar */}
+                  <div className="bg-zinc-950 p-4 rounded border border-zinc-800 flex items-center justify-between font-mono text-xs">
+                    <div className="flex items-center gap-2">
+                      <Radio className="w-4 h-4 text-emerald-400" />
+                      <div>
+                        <span className="font-bold text-white uppercase">Ground Truth Field Evidence</span>
+                        <div className="text-[10px] text-zinc-400">
+                          Observations transmitted by on-site SDRF/NDRF tactical response units
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="px-2.5 py-1 bg-zinc-900 border border-zinc-700 text-white rounded font-bold text-xs">
+                        {data.field_reports?.length || 0} Reports Submitted
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Reports List */}
+                  {data.field_reports && data.field_reports.length > 0 ? (
+                    <div className="space-y-3">
+                      {data.field_reports.map((rep: any) => (
+                        <div
+                          key={rep.id}
+                          className="bg-black border border-zinc-800 rounded p-4 space-y-3 font-mono text-xs"
+                        >
+                          {/* Report Header */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-850 pb-2.5">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span
+                                className={`px-2 py-0.5 rounded font-black text-[10px] uppercase border ${
+                                  rep.severity === "CRITICAL"
+                                    ? "bg-red-950 text-red-300 border-red-700"
+                                    : rep.severity === "HIGH"
+                                    ? "bg-orange-950 text-orange-300 border-orange-700"
+                                    : rep.severity === "MODERATE"
+                                    ? "bg-amber-950 text-amber-300 border-amber-700"
+                                    : "bg-emerald-950 text-emerald-300 border-emerald-700"
+                                }`}
+                              >
+                                {rep.severity}
+                              </span>
+                              <span className="font-bold text-white uppercase">
+                                {rep.report_type.replace(/_/g, " ")}
+                              </span>
+                              <span className="text-zinc-500">•</span>
+                              <span className="text-zinc-300">{rep.reported_by}</span>
+                            </div>
+
+                            <div className="text-[11px] text-zinc-400">
+                              {new Date(rep.timestamp).toLocaleString()}
+                            </div>
+                          </div>
+
+                          {/* Description */}
+                          <p className="text-zinc-200 font-sans text-xs leading-relaxed bg-zinc-950 p-3 rounded border border-zinc-850">
+                            {rep.description}
+                          </p>
+
+                          {/* Geotag & Accuracy */}
+                          <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-1">
+                            <div className="flex items-center gap-1.5">
+                              <LocateFixed className="w-3.5 h-3.5 text-zinc-500" />
+                              <span>
+                                GPS:{" "}
+                                {rep.latitude && rep.longitude ? (
+                                  <strong className="text-zinc-200">
+                                    {rep.latitude.toFixed(4)}°N, {rep.longitude.toFixed(4)}°E
+                                    {rep.location_accuracy ? ` (±${rep.location_accuracy.toFixed(0)}m)` : ""}
+                                  </strong>
+                                ) : (
+                                  <span className="text-zinc-600 italic">GPS Unavailable</span>
+                                )}
+                              </span>
+                            </div>
+
+                            <div className="text-[10px] text-zinc-500 uppercase">
+                              Status: <strong className="text-zinc-300">{rep.status}</strong>
+                            </div>
+                          </div>
+
+                          {/* Photographic Evidence Grid */}
+                          {rep.images && rep.images.length > 0 && (
+                            <div className="space-y-1.5 pt-2 border-t border-zinc-850">
+                              <div className="text-[10px] uppercase font-bold text-zinc-400">
+                                Attached Photo Evidence ({rep.images.length})
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                {rep.images.map((img: any, idx: number) => (
+                                  <div
+                                    key={img.id || idx}
+                                    className="aspect-video bg-zinc-900 border border-zinc-800 rounded overflow-hidden relative group"
+                                  >
+                                    <img
+                                      src={img.url || `${apiUrl}/api/v1/field/media/${img.storage_key}`}
+                                      alt={`Field Evidence ${idx + 1}`}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        (e.target as HTMLElement).style.display = "none";
+                                      }}
+                                    />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-[10px] font-mono text-white">
+                                      Photo #{idx + 1}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="bg-black border border-zinc-800 rounded p-8 text-center text-zinc-500 font-mono text-xs space-y-2">
+                      <Radio className="w-6 h-6 mx-auto text-zinc-600" />
+                      <div>No ground observations submitted for this station yet.</div>
+                      <div className="text-[11px] text-zinc-600">
+                        Field response units on patrol will submit geotagged photos and ground truth reports during inspections.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           ) : null}
+
         </div>
       </div>
     </div>

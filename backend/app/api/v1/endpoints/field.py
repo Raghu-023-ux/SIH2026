@@ -45,6 +45,48 @@ async def get_field_assignment(
     return briefing
 
 
+@router.get("/assignments/{team_id}", response_model=FieldAssignmentResponse)
+async def get_field_assignment_by_id(
+    team_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Retrieves tactical assignment briefing for a specific field unit ID or callsign."""
+    briefing = await field_service.get_assignment_briefing(db, team_id)
+    if not briefing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Field unit '{team_id}' not found."
+        )
+    return briefing
+
+
+@router.patch("/assignments/{team_id}/status", response_model=FieldTeamResponse)
+async def update_assignment_status(
+    team_id: str,
+    status_in: TeamStatusUpdateRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """Updates unit deployment lifecycle status and GPS coordinates."""
+    try:
+        updated = await field_service.update_team_status(
+            session=db,
+            team_id=team_id,
+            status=status_in.status,
+            latitude=status_in.latitude,
+            longitude=status_in.longitude
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Field unit '{team_id}' not found."
+        )
+    await db.commit()
+    return FieldTeamResponse.model_validate(updated)
+
+
 @router.get("/nearby-events", response_model=List[NearbyIncidentItem])
 async def get_nearby_field_events(
     latitude: float = Query(27.3389, ge=-90.0, le=90.0),
@@ -75,13 +117,17 @@ async def update_team_status(
     db: AsyncSession = Depends(get_db)
 ):
     """Updates unit deployment lifecycle status and GPS coordinates."""
-    updated = await field_service.update_team_status(
-        session=db,
-        team_id=team_id,
-        status=status_in.status,
-        latitude=status_in.latitude,
-        longitude=status_in.longitude
-    )
+    try:
+        updated = await field_service.update_team_status(
+            session=db,
+            team_id=team_id,
+            status=status_in.status,
+            latitude=status_in.latitude,
+            longitude=status_in.longitude
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
     if not updated:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -89,6 +135,7 @@ async def update_team_status(
         )
     await db.commit()
     return FieldTeamResponse.model_validate(updated)
+
 
 
 from fastapi import UploadFile, File, Response
