@@ -18,7 +18,7 @@ class HistoricalDisasterIncident(Base):
     
     state = Column(String(64), nullable=False)
     district = Column(String(64), nullable=False)
-    event_date = Column(DateTime, nullable=False, index=True)
+    event_date = Column(DateTime(timezone=True), nullable=False, index=True)
     incident_type = Column(String(64), nullable=False, default="RAINFALL_TRIGGERED_LANDSLIDE")
     
     actual_impact_summary = Column(Text, nullable=False)
@@ -32,7 +32,7 @@ class HistoricalDisasterIncident(Base):
     # 72-Hour Timeline telemetry frames array
     timeline_data_json = Column(JSON, nullable=False)
     
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     location = relationship("Location")
@@ -63,4 +63,5 @@ class ModelEvaluationRun(Base):
     false_negatives = Column(Integer, nullable=False)
     true_negatives = Column(Integer, nullable=False)
     
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+

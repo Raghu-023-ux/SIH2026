@@ -10,7 +10,7 @@ class EngineStatusTracker:
     """
 
     def __init__(self):
-        self._status: str = "ONLINE"  # "ONLINE", "RUNNING", "IDLE", "ERROR", "OFFLINE"
+        self._status: str = "STARTING"  # "STARTING", "ONLINE", "RUNNING", "DEGRADED", "ERROR"
         self._last_run_at: Optional[datetime] = None
         self._last_success_at: Optional[datetime] = None
         self._last_error: Optional[str] = None
@@ -48,10 +48,12 @@ class EngineStatusTracker:
         self._total_runs_count += 1
 
     def record_error(self, error_message: str, duration_ms: float = 0.0):
-        self._status = "ERROR"
+        # If we have had successful runs before, mark DEGRADED; otherwise ERROR
+        self._status = "DEGRADED" if self._last_success_at else "ERROR"
         self._last_run_at = datetime.now(timezone.utc)
         self._last_error = error_message
         self._execution_duration_ms = round(duration_ms, 2)
+
 
     def get_status_payload(self) -> Dict[str, Any]:
         return {

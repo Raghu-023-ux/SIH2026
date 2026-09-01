@@ -28,12 +28,17 @@ elif is_postgres:
     engine_kwargs["pool_recycle"] = settings.DB_POOL_RECYCLE
     engine_kwargs["pool_pre_ping"] = True
 
+    # Supabase Transaction Pooler (PgBouncer port 6543) requires statement_cache_size=0
+    connect_args["statement_cache_size"] = 0
+    connect_args["prepared_statement_cache_size"] = 0
+
     # SSL handling for remote PostgreSQL / Supabase
     if "ssl" not in db_url.lower() and settings.DB_SSL_MODE in ["require", "prefer"]:
         if settings.DB_SSL_MODE == "require":
             connect_args["ssl"] = True
     if connect_args:
         engine_kwargs["connect_args"] = connect_args
+
 
 engine = create_async_engine(db_url, **engine_kwargs)
 

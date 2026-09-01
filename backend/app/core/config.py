@@ -26,16 +26,20 @@ class Settings(BaseSettings):
     def ASYNC_DATABASE_URL(self) -> str:
         """Ensures the database connection URL uses an async dialect and safely handles unreplaced placeholders."""
         url = self.DATABASE_URL
-        # If placeholder strings exist in the database URL, fall back to SQLite to prevent DNS resolution crash
-        if any(token in url for token in ["YOUR-PROJECT-REF", "YOUR-PASSWORD", "[REGION]", "[YOUR-"]):
-            from backend.app.core.logging import logger
-            logger.warning("Unreplaced placeholder detected in DATABASE_URL. Falling back to local SQLite database.")
-            return "sqlite+aiosqlite:///./sih_disaster.db"
+        if any(token in url for token in ["YOUR-PROJECT-REF", "YOUR-PASSWORD", "[REGION]", "[YOUR-", "[YOUR_"]):
+            if self.ENVIRONMENT == "production":
+                from backend.app.core.logging import logger
+                logger.error("CRITICAL: Unreplaced placeholder detected in DATABASE_URL in production environment.")
+            else:
+                from backend.app.core.logging import logger
+                logger.warning("Unreplaced placeholder detected in DATABASE_URL. Falling back to local SQLite database.")
+                return "sqlite+aiosqlite:///./sih_disaster.db"
         if url.startswith("postgres://"):
             return url.replace("postgres://", "postgresql+asyncpg://", 1)
         if url.startswith("postgresql://") and not url.startswith("postgresql+asyncpg://"):
             return url.replace("postgresql://", "postgresql+asyncpg://", 1)
         return url
+
 
 
     # Redis / Upstash Redis Configuration

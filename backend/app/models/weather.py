@@ -10,7 +10,7 @@ class WeatherObservation(Base):
 
     id = Column(String(64), primary_key=True, default=lambda: str(uuid.uuid4()))
     location_id = Column(String(64), ForeignKey("locations.id", ondelete="CASCADE"), nullable=False, index=True)
-    timestamp = Column(DateTime, nullable=False, index=True, default=lambda: datetime.now(timezone.utc))
+    timestamp = Column(DateTime(timezone=True), nullable=False, index=True, default=lambda: datetime.now(timezone.utc))
 
     # Meteorological & Atmospheric Metrics
     temperature = Column(Float, nullable=True)     # °C
@@ -32,10 +32,11 @@ class WeatherObservation(Base):
     source_version = Column(String(32), nullable=False, default="v1")
     observation_type = Column(String(32), nullable=False, default="OBSERVED")  # OBSERVED, FORECAST, DERIVED, MODELLED, SATELLITE
     quality_score = Column(Float, nullable=False, default=1.0)
-    retrieved_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    retrieved_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     freshness_status = Column(String(32), nullable=False, default="FRESH")  # FRESH, AGING, STALE, UNKNOWN
 
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+
 
 
     # Relationships

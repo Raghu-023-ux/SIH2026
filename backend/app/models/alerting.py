@@ -29,7 +29,7 @@ class NotificationDispatchLog(Base):
     status = Column(String(32), nullable=False, default="DISPATCHED", index=True)
     latency_ms = Column(Float, nullable=True, default=12.5)
     
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
 
     # Relationships
     event = relationship("DisasterEvent")
@@ -53,7 +53,7 @@ class SituationReport(Base):
     executive_summary = Column(Text, nullable=False)
     full_sitrep_json = Column(JSON, nullable=False)
     
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
 
     # Relationships
     event = relationship("DisasterEvent")
@@ -74,7 +74,7 @@ class Broadcast(Base):
     message = Column(Text, nullable=False)
     target_type = Column(String(64), nullable=False, default="FIELD_TEAMS", index=True)  # FIELD_TEAMS, PUBLIC_USERS, EVENT_AREA, CUSTOM_GROUP
     target_filter = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
 
     # Relationships
     event = relationship("DisasterEvent")
@@ -92,10 +92,11 @@ class Notification(Base):
     recipient_id = Column(String(128), nullable=False, index=True)
     channel = Column(String(32), nullable=False, index=True)  # IN_APP, SMS
     status = Column(String(32), nullable=False, default="QUEUED", index=True)  # QUEUED, SENT, FAILED, DELIVERED
-    sent_at = Column(DateTime, nullable=True)
-    read_at = Column(DateTime, nullable=True)
+    sent_at = Column(DateTime(timezone=True), nullable=True)
+    read_at = Column(DateTime(timezone=True), nullable=True)
     failure_reason = Column(String(255), nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+
 
     # Relationships
     broadcast = relationship("Broadcast", back_populates="notifications")

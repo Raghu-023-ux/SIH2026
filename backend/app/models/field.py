@@ -22,8 +22,8 @@ class FieldTeam(Base):
     longitude = Column(Float, nullable=True)
     contact_channel = Column(String(64), nullable=True, default="VHF Ch 4 / Satellite")
     
-    last_active_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    last_active_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     assigned_location = relationship("Location")
@@ -54,15 +54,15 @@ class FieldReport(Base):
     location_accuracy = Column(Float, nullable=True) # in meters
     location_source = Column(String(32), nullable=False, default="UNKNOWN") # GPS, MANUAL, UNKNOWN
     
-    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
     
     # Status: SUBMITTED, ACKNOWLEDGED, UNDER_REVIEW, REVIEWED, INCORPORATED, DISMISSED
     status = Column(String(32), nullable=False, default="SUBMITTED", index=True)
     reviewed_by = Column(String(128), nullable=True)
     review_notes = Column(Text, nullable=True)
 
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     team = relationship("FieldTeam", back_populates="reports")
@@ -85,7 +85,7 @@ class FieldReportImage(Base):
     mime_type = Column(String(64), nullable=False, default="image/jpeg")
     file_size = Column(Float, nullable=False, default=0.0) # size in bytes
     uploaded_by = Column(String(128), nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     report = relationship("FieldReport", back_populates="images")
@@ -113,8 +113,8 @@ class AssistanceRequest(Base):
     assigned_unit = Column(String(128), nullable=True)
     resolution_notes = Column(Text, nullable=True)
 
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     team = relationship("FieldTeam", back_populates="assistance_requests")
@@ -134,10 +134,11 @@ class OperationalMessage(Base):
     
     message = Column(Text, nullable=False)
     
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
-    read_at = Column(DateTime, nullable=True)
-    acknowledged_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+    read_at = Column(DateTime(timezone=True), nullable=True)
+    acknowledged_at = Column(DateTime(timezone=True), nullable=True)
     acknowledged_by = Column(String(128), nullable=True)
+
 
     # Relationships
     event = relationship("DisasterEvent")

@@ -10,7 +10,7 @@ class RiskAssessment(Base):
 
     id = Column(String(64), primary_key=True, default=lambda: str(uuid.uuid4()))
     location_id = Column(String(64), ForeignKey("locations.id", ondelete="CASCADE"), nullable=False, index=True)
-    timestamp = Column(DateTime, nullable=False, index=True, default=lambda: datetime.now(timezone.utc))
+    timestamp = Column(DateTime(timezone=True), nullable=False, index=True, default=lambda: datetime.now(timezone.utc))
 
     hazard_type = Column(String(64), nullable=False, default="LANDSLIDE", index=True)
     risk_level = Column(String(32), nullable=False, index=True)  # LOW, MODERATE, HIGH, CRITICAL
@@ -20,8 +20,9 @@ class RiskAssessment(Base):
     reason = Column(String(512), nullable=False)
     factors = Column(JSON, nullable=False, default=list)         # List of contributing factor details
 
-    assessment_version = Column(String(32), nullable=False, default="v1.0-prototype")
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    assessment_version = Column(String(32), nullable=False, default="1.0.0")
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+
 
     # Relationships
     location = relationship("Location", back_populates="risk_assessments")

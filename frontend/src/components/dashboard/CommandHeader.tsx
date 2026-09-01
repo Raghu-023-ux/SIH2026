@@ -159,12 +159,15 @@ export default function CommandHeader({
             <span className={`font-black ${
               displayEngineStatus === "ONLINE" || displayEngineStatus === "RUNNING"
                 ? "text-emerald-400"
+                : displayEngineStatus === "STARTING" || displayEngineStatus === "DEGRADED"
+                ? "text-amber-400"
                 : displayEngineStatus === "IDLE"
                 ? "text-blue-400"
                 : "text-red-400"
             }`}>
               {displayEngineStatus}
             </span>
+
           </div>
 
           <span className="text-zinc-700">|</span>

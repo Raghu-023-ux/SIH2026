@@ -18,4 +18,5 @@ class AIAuditLog(Base):
     latency_ms = Column(Float, nullable=False, default=0.0)
     status = Column(String(32), nullable=False, default="SUCCESS")  # SUCCESS, FAILED, FALLBACK
     error_message = Column(Text, nullable=True)
-    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+

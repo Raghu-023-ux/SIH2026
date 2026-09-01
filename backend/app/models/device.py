@@ -32,9 +32,10 @@ class DeviceToken(Base):
     is_active = Column(Boolean, default=True, nullable=False, index=True)
     deactivation_reason = Column(String(255), nullable=True)
     
-    last_seen_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    last_seen_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
 
     __table_args__ = (
         Index("idx_device_active_platform", "is_active", "platform"),

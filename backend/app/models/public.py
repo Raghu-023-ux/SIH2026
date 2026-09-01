@@ -32,7 +32,7 @@ class SafetyPoint(Base):
     contact_number = Column(String(64), nullable=True, default="1070 / 112")
     is_simulated = Column(Boolean, default=True, nullable=False)
     
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     location = relationship("Location")
@@ -56,8 +56,8 @@ class PublicUser(Base):
     alert_radius_km = Column(Float, default=25.0, nullable=False)
     preferred_language = Column(String(16), default="en", nullable=False)
 
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
 
 class PublicAlertAcknowledgment(Base):
@@ -70,7 +70,8 @@ class PublicAlertAcknowledgment(Base):
     event_id = Column(String(64), ForeignKey("disaster_events.id", ondelete="CASCADE"), nullable=False, index=True)
     location_id = Column(String(64), ForeignKey("locations.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(String(64), nullable=True, index=True)
-    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+
 
     # Relationships
     event = relationship("DisasterEvent")

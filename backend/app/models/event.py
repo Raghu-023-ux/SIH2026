@@ -23,11 +23,12 @@ class DisasterEvent(Base):
     confidence_score = Column(Float, nullable=False)           # Confidence score (0.0 to 1.0)
     trajectory = Column(String(32), nullable=False, default="STABLE")  # INCREASING, DECREASING, STABLE, VOLATILE
 
-    detected_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    detected_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
-    expected_start = Column(DateTime, nullable=True)
-    expected_peak = Column(DateTime, nullable=True)
+    expected_start = Column(DateTime(timezone=True), nullable=True)
+    expected_peak = Column(DateTime(timezone=True), nullable=True)
+
 
     affected_area = Column(String(256), nullable=True)
     summary = Column(String(1024), nullable=False)

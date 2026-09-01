@@ -11,7 +11,7 @@ class RiskAssessmentHistory(Base):
     id = Column(String(64), primary_key=True, default=lambda: str(uuid.uuid4()))
     event_id = Column(String(64), ForeignKey("disaster_events.id", ondelete="SET NULL"), nullable=True, index=True)
     location_id = Column(String(64), ForeignKey("locations.id", ondelete="CASCADE"), nullable=False, index=True)
-    timestamp = Column(DateTime, nullable=False, index=True, default=lambda: datetime.now(timezone.utc))
+    timestamp = Column(DateTime(timezone=True), nullable=False, index=True, default=lambda: datetime.now(timezone.utc))
 
     risk_score = Column(Float, nullable=False)
     risk_level = Column(String(32), nullable=False)
@@ -24,7 +24,8 @@ class RiskAssessmentHistory(Base):
 
     engine_version = Column(String(32), nullable=False, default="1.0.0")
 
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+
 
     __table_args__ = (
         Index("idx_hist_loc_time", "location_id", "timestamp"),
