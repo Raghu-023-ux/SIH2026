@@ -22,7 +22,8 @@ class RiskAssessmentHistory(Base):
     reasons_json = Column(JSON, nullable=False, default=list)
     quality_json = Column(JSON, nullable=True)
 
-    engine_version = Column(String(32), nullable=False, default="prototype-v0.2")
+    engine_version = Column(String(32), nullable=False, default="1.0.0")
+
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     __table_args__ = (

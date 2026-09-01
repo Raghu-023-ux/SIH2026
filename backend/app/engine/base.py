@@ -196,4 +196,5 @@ class AssessmentOutput:
     signal_agreement: Optional[SignalAgreementReport] = None
     is_persistent_rain: bool = False
     is_increasing_rain: bool = False
-    engine_version: str = "prototype-v0.2"
+    engine_version: str = "1.0.0"
+

@@ -65,7 +65,7 @@ class EngineAssessmentResponse(BaseModel):
     signal_agreement: Optional[Dict[str, Any]] = None
     summary: str
     timestamp: datetime
-    engine_version: str = "prototype-v0.2"
+    engine_version: str = "1.0.0"
 
 
 class MultiLocationEngineResponse(BaseModel):
@@ -74,5 +74,6 @@ class MultiLocationEngineResponse(BaseModel):
     active_events_count: int
     highest_risk_score: float
     highest_risk_level: str
-    engine_version: str = "prototype-v0.2"
+    engine_version: str = "1.0.0"
     assessments: List[EngineAssessmentResponse]
+
