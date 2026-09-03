@@ -69,3 +69,6 @@ class ModelRegistryStatusResponse(BaseModel):
     registered_models: List[Dict[str, Any]]
     operational_status: str
     training_pipeline_status: str
+    model_status: Optional[str] = "READY"
+    active_model_version: Optional[str] = "2.0.0"
+

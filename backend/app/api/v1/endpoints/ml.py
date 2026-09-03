@@ -17,8 +17,15 @@ from backend.app.schemas.ml import (
     LandslidePredictionResponse,
     ModelRegistryStatusResponse,
 )
+from backend.app.schemas.ml_forecast import (
+    LocationForecastResponse,
+    MultiLocationForecastResponse,
+    GISHeatmapResponse,
+)
+from backend.app.services.landslide_inference_service import landslide_inference_service
 
 router = APIRouter()
+
 
 
 @router.get("/status", response_model=ModelRegistryStatusResponse)
@@ -192,3 +199,105 @@ async def predict_landslide_probability(
         confidence_score=output.confidence_score,
         disclaimer=output.disclaimer,
     )
+
+
+@router.get("/forecast/{location_id}", response_model=LocationForecastResponse)
+async def get_location_forecast(
+    location_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Consolidated Single-Station ML Landslide Forecast.
+    Returns:
+    - Current deterministic risk condition (0-100)
+    - Multi-signal environmental anomaly status
+    - ML landslide forecast probabilities across feasible horizons (e.g. 24h)
+    - Data freshness and observation timestamps
+    - Observed risk indicators vs. model feature contributions
+    - Model metadata and operational status (READY / NOT_TRAINED)
+    """
+    location = await LocationService.get_location_by_id(db, location_id)
+    if not location:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Monitored location '{location_id}' not found."
+        )
+
+    stmt = (
+        select(WeatherObservation)
+        .where(WeatherObservation.location_id == location_id)
+        .order_by(WeatherObservation.timestamp.asc())
+    )
+    result = await db.execute(stmt)
+    observations = list(result.scalars().all())
+    latest_obs = observations[-1] if observations else None
+
+    from backend.app.models.risk import RiskAssessment
+    r_stmt = (
+        select(RiskAssessment)
+        .where(RiskAssessment.location_id == location_id)
+        .order_by(RiskAssessment.timestamp.desc())
+        .limit(1)
+    )
+    r_res = await db.execute(r_stmt)
+    latest_risk = r_res.scalars().first()
+    det_score = latest_risk.risk_score if latest_risk else 10.0
+    det_level = latest_risk.risk_level if latest_risk else "LOW"
+
+    forecast = await landslide_inference_service.generate_forecast_for_location(
+        session=db,
+        location=location,
+        latest_obs=latest_obs,
+        obs_history=observations,
+        deterministic_risk_score=det_score,
+        deterministic_risk_level=det_level,
+        persist=True,
+    )
+    await db.commit()
+    return forecast
+
+
+@router.get("/forecast", response_model=MultiLocationForecastResponse)
+async def get_all_locations_forecast(
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Multi-Station Landslide Early Warning Forecast across all monitored NER stations.
+    Returns ranked forecast probabilities, anomaly scores, and model metadata.
+    """
+    locations = await LocationService.get_all_locations(db)
+    if not locations:
+        await LocationService.seed_initial_locations(db)
+        locations = await LocationService.get_all_locations(db)
+
+    multi_fc = await landslide_inference_service.generate_forecast_for_all_locations(
+        session=db,
+        locations=locations,
+        persist=True,
+    )
+    await db.commit()
+    return multi_fc
+
+
+@router.get("/gis-heatmap", response_model=GISHeatmapResponse)
+async def get_gis_heatmap(
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    GIS Landslide Prediction Heatmap / FeatureCollection.
+    Provides geospatial objects with station catchment coordinates,
+    24h ML landslide probability, anomaly scores, risk classes, and data freshness.
+    Includes explicit spatial resolution disclaimer to prevent unverified interpolation claims.
+    """
+    locations = await LocationService.get_all_locations(db)
+    if not locations:
+        await LocationService.seed_initial_locations(db)
+        locations = await LocationService.get_all_locations(db)
+
+    multi_fc = await landslide_inference_service.generate_forecast_for_all_locations(
+        session=db,
+        locations=locations,
+        persist=False,
+    )
+    return landslide_inference_service.generate_gis_heatmap(multi_fc)
+
