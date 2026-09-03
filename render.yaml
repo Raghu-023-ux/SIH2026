@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: sih26001-backend
+    env: docker
+    dockerfilePath: ./Dockerfile.backend
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DATA_MODE
+        value: LIVE
+      - key: ENGINE_VERSION
+        value: 1.0.0
+      - key: LOG_LEVEL
+        value: INFO
+      - key: DATABASE_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        value: onboarding@resend.dev
+      - key: BHOONIDHI_PROVIDER_MODE
+        value: MOCK
+      - key: FIREBASE_PROVIDER_MODE
+        value: MOCK
+      - key: BACKEND_CORS_ORIGINS
+        value: '["https://your-app.vercel.app","http://localhost:3000"]'
