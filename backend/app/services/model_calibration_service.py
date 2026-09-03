@@ -67,8 +67,15 @@ class ModelCalibrationService:
             confusion_matrix=cm,
             lead_time_distribution=lead_times,
             current_factor_weights=ModelCalibrationService.BASELINE_WEIGHTS,
-            verified_disaster_events_count=50
+            verified_disaster_events_count=50,
+            is_simulated=True,
+            data_mode="DEMO_SIMULATED",
+            disclaimer=(
+                "DEMO / SIMULATED BENCHMARK: Baseline metrics reflect synthetic calibration targets "
+                "for UI and workflow verification. Certified ML metrics will be populated when trained on GSI/IMD datasets."
+            )
         )
+
 
     @staticmethod
     async def run_backtest(session: AsyncSession, req: BacktestRequest) -> BacktestResponse:
@@ -158,8 +165,11 @@ class ModelCalibrationService:
             mean_lead_time_hours=mean_lead,
             confusion_matrix=cm,
             comparison_with_baseline=comparison,
-            recommendation=recommendation
+            recommendation=recommendation,
+            is_simulated=True,
+            data_mode="DEMO_SIMULATED",
         )
+
 
     @staticmethod
     async def get_evaluation_history(session: AsyncSession, limit: int = 20) -> List[ModelEvaluationRun]:

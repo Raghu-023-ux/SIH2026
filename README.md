@@ -1,62 +1,82 @@
-# SIH26001: AI-Based Early Warning & Landslide Risk Monitoring System in the North Eastern Region (NER)
+# SIH26001: AI/ML-Based Landslide Detection, Prediction & Early-Warning System for the North Eastern Region (NER) of India
 
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI_0.115-009688?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Next.js](https://img.shields.io/badge/Frontend-Next.js_15_App_Router-black?style=flat&logo=next.js&logoColor=white)](https://nextjs.org)
 [![CAP v1.2 Compliant](https://img.shields.io/badge/Standard-OASIS_CAP_v1.2-blue?style=flat)](https://docs.oasis-open.org/emergency/cap/v1.2/CAP-v1.2.html)
-[![Tests](https://img.shields.io/badge/Pytest-73_Passed-brightgreen?style=flat&logo=pytest&logoColor=white)](https://pytest.org)
+[![Tests](https://img.shields.io/badge/Pytest-132_Passed-brightgreen?style=flat&logo=pytest&logoColor=white)](https://pytest.org)
 [![Docker Ready](https://img.shields.io/badge/Deployment-Docker_Compose-2496ED?style=flat&logo=docker&logoColor=white)](https://www.docker.com)
-[![Engine Version](https://img.shields.io/badge/Engine_Version-prototype--v0.3-indigo?style=flat)](docs/core-engine-architecture.md)
+[![Engine Version](https://img.shields.io/badge/Engine_Version-prototype--v2.0-indigo?style=flat)](docs/core-engine-architecture.md)
 
 ---
 
-## 1. Executive Summary & Core Principle
+## 1. Primary Problem & Technical Mission
 
-The North Eastern Region of India accounts for over **70% of the nation's critical landslide susceptibility**, characterized by steep mountain slopes, complex geological shear zones, and intense monsoonal precipitation.
+The North Eastern Region (NER) of India accounts for over **70% of the nation's critical landslide susceptibility**, characterized by steep mountain slopes, complex geological shear zones, active seismicity, and torrential monsoonal precipitation.
 
-**SIH26001** is NOT a generic weather chatbot. It is a **multi-signal, deterministic Disaster Intelligence Decision Support System (DSS)** designed to continuously ingest environmental sensor telemetry, assess physical landslide risk, manage active disaster event lifecycles, coordinate field rescue units, broadcast standardized CAP v1.2 warning feeds, and deliver plain-language public safety guidance.
+### Primary Problem:
+Detect abnormal environmental conditions associated with landslides, estimate current physical landslide risk, and use a genuinely trained AI/ML predictive analytics model to forecast the probability of an upcoming landslide across the North Eastern Region.
+
+### The Two Major Technical Pillars:
+1. **REAL-TIME GIS DASHBOARD AND LANDSLIDE RISK HEATMAPS**: Interactive geospatial risk mapping across NER station sectors, combining topographic geometry, multi-window rainfall accumulation, pore water pressure saturation, and geomorphological susceptibility.
+2. **AI/ML-BASED PREDICTIVE ANALYTICS ENGINE FOR LANDSLIDE EARLY WARNING**: A modular predictive analytics architecture separating **Task A (Environmental Anomaly Detection)** from **Task B (Landslide Occurrence Probability Forecasting across 6h, 12h, and 24h horizons)**.
 
 ---
 
-## 2. End-to-End System Architecture
+## 2. End-to-End Landslide Early-Warning Architecture
 
 ```text
-                               ENVIRONMENTAL TELEMETRY
-                     ┌───────────────────┴───────────────────┐
-                     ▼                                       ▼
-            Live Open-Meteo API                     Deterministic Simulation
-         (Rainfall, Soil Moisture)                   (Scenarios & Playback)
-                     │                                       │
+                             DATA SOURCES
+       (Live Open-Meteo API, In-Situ Sensors, Bhoonidhi Satellite)
+                                  │
+                                  ▼
+                 DATA VALIDATION & PROVENANCE TAGGING
+     (OBSERVED / FORECAST / SATELLITE / MODEL_DERIVED / STATIC / SIMULATED)
+                                  │
+                                  ▼
+                 SPATIO-TEMPORAL FEATURE ENGINEERING
+                                  │
+        ┌─────────────────────────┴─────────────────────────┐
+        ▼                                                   ▼
+┌───────────────────────────────────────┐   ┌───────────────────────────────────────┐
+│ TASK A: ENVIRONMENTAL ANOMALY MODEL   │   │ TASK B: LANDSLIDE PREDICTION MODEL    │
+│                                       │   │                                       │
+│ "Are environmental conditions         │   │ "P(landslide occurrence in location   │
+│ statistically abnormal?"              │   │ during forecast window T + H)?"       │
+│                                       │   │                                       │
+│ Output: Anomaly Score (0.0 to 1.0)    │   │ Forecast Horizons:                    │
+│ Anomaly Level (NORMAL / ELEVATED /    │   │ • 6-Hour Probability                  │
+│ SEVERE / EXTREME)                     │   │ • 12-Hour Probability                 │
+│                                       │   │ • 24-Hour Probability                 │
+└──────────────────┬────────────────────┘   └──────────────────┬────────────────────┘
+                   │                                           │
+                   └─────────────────────┬─────────────────────┘
+                                         │
+                                         ▼
+                     ┌───────────────────────────────────────┐
+                     │ DETERMINISTIC SCIENTIFIC INDICATORS   │
+                     │ (I-D Curves, API, Slope, Soil Sat.)   │
                      └───────────────────┬───────────────────┘
-                                         ▼
-                             DATA VALIDATION LAYER
-                           (Range Bounds, Staleness)
                                          │
                                          ▼
-                            DISASTER INTELLIGENCE ENGINE
-                       ┌─────────────────┴─────────────────┐
-                       ▼                                   ▼
-              Anomaly Detection                   Multi-Factor Scorer
-              (Z-Score Spikes)               (Rainfall, Soil, Slope, Hist)
-                       │                                   │
-                       └─────────────────┬─────────────────┘
-                                         ▼
-                           LANDSLIDE RISK ASSESSMENT
-                     (Score 0-100, Level, Confidence, Trend)
+                     ┌───────────────────────────────────────┐
+                     │ LANDSLIDE EARLY-WARNING DECISION      │
+                     │ ENGINE (Synthesizes current risk,     │
+                     │ future probability, & data quality)   │
+                     └───────────────────┬───────────────────┘
                                          │
-                                         ▼
-                             DISASTER EVENT LIFECYCLE
-                     (DETECTED → ACTIVE → MITIGATED → RESOLVED)
-                                         │
-                 ┌───────────────────────┼───────────────────────┐
-                 ▼                       ▼                       ▼
-      CORE EXPERT COMMAND CENTER   FIELD RESCUE APP       PUBLIC SAFETY PORTAL
-        (Operational GIS DSS)          (/field)                 (/public)
-                 │                       │                       │
-                 ▼                       ▼                       ▼
-         AI AGENTIC LAYER         GROUND EVIDENCE         CITIZEN ACTION
-        (Analyst/Explainer)     (Reports & SOS Loop)    (Safer Points & Map)
-                 │                                               │
-                 └───────────────────────┬───────────────────────┘
+        ┌────────────────────────────────┼────────────────────────────────┐
+        ▼                                ▼                                ▼
+GIS RISK HEATMAP (NER)         DECISION-SUPPORT DSS          CAP v1.2 / PUBLIC ALERTS
+(Tactical Map & Perimeters)    (HQ Command & Field Units)    (Plain-Language Advisories)
+```
+
+### Critical Modeling Distinctions & Terminology
+* **Current Conditions:** What is physically happening on the slope now?
+* **Environmental Anomaly (Task A):** Are meteorological and soil saturation conditions statistically abnormal compared to normal behavior?
+* **Current Landslide Risk:** How favorable are current physical terrain and moisture conditions for slope failure?
+* **Forecast Landslide Probability (Task B):** What probability does the trained ML model assign to landslide occurrence during a future window (e.g. `Model-estimated probability of landslide occurrence within the next 12 hours: 0.68`)?
+* **Confidence / Data Quality:** How trustworthy is this assessment given sensor availability and model uncertainty?
+
                                          ▼
                            MULTI-CHANNEL WARNING PIPELINE
                      ┌───────────────────┼───────────────────┐

@@ -70,6 +70,12 @@ class CalibrationMetricsResponse(BaseModel):
     lead_time_distribution: LeadTimeDistribution
     current_factor_weights: Dict[str, float]
     verified_disaster_events_count: int
+    is_simulated: bool = True
+    data_mode: str = "DEMO_SIMULATED"
+    disclaimer: str = (
+        "DEMO / SIMULATED BENCHMARK: Baseline metrics reflect synthetic calibration targets "
+        "for UI and workflow verification. Certified ML metrics will be populated when trained on GSI/IMD datasets."
+    )
 
 
 # --- Backtest Sandbox Schemas ---
@@ -99,3 +105,6 @@ class BacktestResponse(BaseModel):
     confusion_matrix: ConfusionMatrix
     comparison_with_baseline: Dict[str, Any]
     recommendation: str
+    is_simulated: bool = True
+    data_mode: str = "DEMO_SIMULATED"
+

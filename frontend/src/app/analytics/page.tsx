@@ -201,13 +201,17 @@ export default function AnalyticsAndCalibrationStudio() {
               <span className="text-[10px] font-mono uppercase text-indigo-400 font-bold">
                 SIH26001 • MODEL VALIDATION STUDIO
               </span>
-              <span className="bg-indigo-950 text-indigo-300 border border-indigo-800 text-[10px] font-mono px-1.5 py-0.2 rounded font-semibold">
-                ROC-AUC: 0.94
+              <span className="bg-amber-950/80 text-amber-300 border border-amber-800 text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase">
+                DEMO / SIMULATED BENCHMARK
+              </span>
+              <span className="bg-slate-800 text-slate-300 border border-slate-700 text-[10px] font-mono px-2 py-0.5 rounded">
+                Tier: Baseline Deterministic
               </span>
             </div>
             <h1 className="text-sm sm:text-base font-bold text-slate-100">
               Historical Disaster Playback &amp; Model Calibration Studio
             </h1>
+
           </div>
         </div>
 
@@ -397,17 +401,34 @@ export default function AnalyticsAndCalibrationStudio() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Left: Metrics & Confusion Matrix (6 cols) */}
             <div className="lg:col-span-6 bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-              <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
-                <Award className="w-5 h-5 text-amber-400" />
-                <div>
-                  <h3 className="text-sm font-bold text-slate-100">
-                    Statistical Verification &amp; Accuracy Metrics
-                  </h3>
-                  <p className="text-[11px] text-slate-400 font-mono">
-                    Historical Re-analysis across 150 seasonal validation events.
-                  </p>
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <Award className="w-5 h-5 text-amber-400" />
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                      Statistical Verification &amp; Accuracy Metrics
+                      <span className="bg-amber-950 text-amber-400 border border-amber-800 text-[9px] font-mono px-1.5 py-0.5 rounded font-bold uppercase">
+                        DEMO / SIMULATED
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-slate-400 font-mono">
+                      Synthetic calibration baseline for UI verification (N = 150 events).
+                    </p>
+                  </div>
                 </div>
               </div>
+
+              {/* Scientific Transparency Advisory Banner */}
+              <div className="bg-amber-950/40 border border-amber-800/60 rounded-xl p-3 flex items-start gap-2.5 text-xs text-amber-200/90 font-mono">
+                <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <div className="font-bold text-amber-300">SCIENTIFIC TRANSPARENCY ADVISORY</div>
+                  <div className="text-[11px] text-slate-300 leading-relaxed font-sans">
+                    The precision, recall, and ROC-AUC metrics shown below represent <strong>synthetic demonstration baselines</strong> designed to verify interface controls and weight sensitivity. Certified machine learning accuracy will be computed through an authentic training and cross-validation pipeline once trained on curated GSI / IMD regional landslide records.
+                  </div>
+                </div>
+              </div>
+
 
               {/* Accuracy KPI Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 font-mono text-center">
@@ -442,9 +463,13 @@ export default function AnalyticsAndCalibrationStudio() {
 
               {/* 2x2 Confusion Matrix */}
               <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2">
-                <div className="text-xs font-mono font-bold text-slate-300">
-                  2×2 Confusion Matrix (N = {metrics.confusion_matrix.total_evaluations}):
+                <div className="text-xs font-mono font-bold text-slate-300 flex items-center justify-between">
+                  <span>2×2 Confusion Matrix (N = {metrics.confusion_matrix.total_evaluations}):</span>
+                  <span className="text-[10px] text-amber-400/80 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-800/60 font-bold uppercase">
+                    SIMULATED BENCHMARK
+                  </span>
                 </div>
+
                 <div className="grid grid-cols-2 gap-2 font-mono text-center text-xs">
                   <div className="bg-emerald-950/60 p-3 rounded-lg border border-emerald-800">
                     <div className="text-[10px] text-emerald-400 font-bold uppercase">True Positives (TP)</div>
